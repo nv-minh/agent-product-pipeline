@@ -24,7 +24,7 @@ test('gate đỏ thì state = failed, attempts tăng, evidence có exit khác 0'
   const s = readState(d)
   assert.equal(s.stages['10-prd'].status, 'failed')
   assert.equal(s.stages['10-prd'].attempts, 1)
-  assert.match(readFileSync(join(d, '.evidence/10-prd.log'), 'utf8'), /Exit status: 1/)
+  assert.match(readFileSync(join(d, '.evidence/10-prd.t1.log'), 'utf8'), /Exit status: 1/)
 })
 
 test('gate xanh thì state = done và lưu inputs_hash', () => {
@@ -68,7 +68,7 @@ test('FINDING 3: nếu check throw thì ghi lại và tiếp tục', () => {
     { name: 'ok', run: () => ({ name: 'ok', ok: true, messages: [] }) },
   ])
   assert.equal(r.ok, false) // Run failed because one check threw
-  const log = readFileSync(join(d, '.evidence/10-prd.log'), 'utf8')
+  const log = readFileSync(join(d, '.evidence/10-prd.t1.log'), 'utf8')
   assert.match(log, /boom/)
 })
 
@@ -82,7 +82,7 @@ test('FINDING 4: tập tin hiệu ứng thiếu thì ghi lại thất bại', ()
   assert.equal(r.ok, false)
   const s = readState(d)
   assert.equal(s.stages['10-prd'].status, 'failed')
-  const log = readFileSync(join(d, '.evidence/10-prd.log'), 'utf8')
+  const log = readFileSync(join(d, '.evidence/10-prd.t1.log'), 'utf8')
   assert.match(log, /artifact-exists/)
   assert.match(log, /10-prd\.md/)
 })
