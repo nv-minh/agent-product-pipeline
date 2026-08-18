@@ -54,6 +54,90 @@ test('cho phép ghi .evidence/ ở ngoài mọi feature dir (không thuộc pipe
   assert.equal(r.code, 0)
 })
 
+// FIX review Task 12 (finding 1, CRITICAL): máy này dùng APFS mặc định
+// case-insensitive — state.md, STATE.MD và STATE.md là CÙNG một file trên
+// đĩa. Regex chặn phải case-insensitive (segment features/, tên file
+// STATE.md, và segment .evidence/), nếu không viết chữ thường/hoa khác đi
+// là một đường vòng để agent ghi đè STATE.md thật.
+test('chặn ghi state.md (chữ thường) trong features/ — APFS case-insensitive', () => {
+  const r = run(['guard-write', '--path', '/x/features/demo/state.md'])
+  assert.equal(r.code, 1)
+  assert.match(r.out, /STATE\.md/)
+})
+
+test('chặn ghi STATE.MD (đuôi hoa) trong features/', () => {
+  assert.equal(run(['guard-write', '--path', '/x/features/demo/STATE.MD']).code, 1)
+})
+
+test('chặn ghi STATE.md khi segment "Features/" viết hoa chữ đầu', () => {
+  assert.equal(run(['guard-write', '--path', '/x/Features/demo/STATE.md']).code, 1)
+})
+
+test('chặn ghi trong .EVIDENCE/ viết hoa (case-insensitive)', () => {
+  assert.equal(run(['guard-write', '--path', '/x/features/demo/.EVIDENCE/log.txt']).code, 1)
+})
+
+// FIX review Task 12 (finding 3, Important): path tương đối (không có "/"
+// đầu) phải resolve theo cwd trước khi so khớp, để nhất quán với path có
+// "./" hay path tuyệt đối — không thì bỏ dấu "/" đầu là một đường vòng.
+test('chặn ghi STATE.md qua path tương đối (không có "/" đầu), resolve theo cwd', () => {
+  const root = tmpRoot()
+  const r = run(['guard-write', '--path', 'features/demo/STATE.md'], { cwd: root })
+  assert.equal(r.code, 1)
+  assert.match(r.out, /STATE\.md/)
+})
+
+test('cho phép path tương đối không resolve vào một feature dir', () => {
+  const root = tmpRoot()
+  const r = run(['guard-write', '--path', 'not-a-feature-dir/STATE.md'], { cwd: root })
+  assert.equal(r.code, 0)
+})
+
+// FIX review Task 12 (finding 2 CRITICAL + finding 4 Important): chuyển
+// việc parse JSON từ shell (grep/sed, dễ fail-closed và không phải parser
+// thật) vào Node qua chế độ `--stdin`, dùng JSON.parse thật. Luôn fail-open
+// khi stdin rỗng / không phải JSON / không có file path.
+test('--stdin: payload có file_path (top-level) trỏ path bị chặn → exit 1', () => {
+  const payload = JSON.stringify({ file_path: '/x/features/demo/STATE.md' })
+  const r = run(['guard-write', '--stdin'], { input: payload })
+  assert.equal(r.code, 1)
+  assert.match(r.out, /STATE\.md/)
+})
+
+test('--stdin: payload dạng tool_input.file_path (khuôn dạng hook thật) trỏ path bị chặn → exit 1', () => {
+  const payload = JSON.stringify({ tool_name: 'Write', tool_input: { file_path: '/x/features/demo/.evidence/log.txt' } })
+  const r = run(['guard-write', '--stdin'], { input: payload })
+  assert.equal(r.code, 1)
+})
+
+test('--stdin: payload trỏ path bình thường → exit 0', () => {
+  const payload = JSON.stringify({ file_path: '/x/features/demo/10-prd.md' })
+  const r = run(['guard-write', '--stdin'], { input: payload })
+  assert.equal(r.code, 0)
+})
+
+test('--stdin: stdin rỗng → exit 0 (fail-open)', () => {
+  const r = run(['guard-write', '--stdin'], { input: '' })
+  assert.equal(r.code, 0)
+})
+
+test('--stdin: JSON méo/không hợp lệ → exit 0 (fail-open, không throw)', () => {
+  const r = run(['guard-write', '--stdin'], { input: 'not json at all {{{' })
+  assert.equal(r.code, 0)
+})
+
+test('--stdin: file_path lặp key → giá trị CUỐI quyết định (đúng ngữ nghĩa JSON.parse), ở đây cuối là path bị chặn', () => {
+  const raw = '{"file_path":"/x/allowed.md","file_path":"/x/features/demo/STATE.md"}'
+  const r = run(['guard-write', '--stdin'], { input: raw })
+  assert.equal(r.code, 1)
+})
+
+test('--stdin: file_path lặp key, giá trị CUỐI là path được phép → exit 0', () => {
+  const raw = '{"file_path":"/x/features/demo/STATE.md","file_path":"/x/allowed.md"}'
+  const r = run(['guard-write', '--stdin'], { input: raw })
+  assert.equal(r.code, 0)
+})
+
 // CORRECTION so với brief: guard-write KHÔNG được cần root. Hook PreToolUse
 // chạy trên MỌI Write/Edit ở MỌI project trên máy, không riêng
 // pinnacle-product — nếu guard-write đòi root, nó sẽ lỗi/crash khi chạy
