@@ -1,14 +1,40 @@
 #!/usr/bin/env node
-const COMMANDS = {}   // các task sau đăng ký: COMMANDS.init = initCmd
+import { existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { initCmd } from '../lib/commands/init.js'
+import { statusCmd } from '../lib/commands/status.js'
+
+const COMMANDS = { init: initCmd, status: statusCmd }   // các task sau đăng ký thêm vào đây
 
 const USAGE = `Usage: pp <command> [options]
 
 Commands:
-  (chưa có lệnh nào — sẽ thêm ở các task sau)
+  init <feature> [--size S|M|L]   Tạo blackboard cho feature mới
+  status <feature>                In stage kế tiếp và lý do
 
 Options:
+  --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
   --help    In trợ giúp này
 `
+
+// Dò lên từ cwd tìm constitution.md để xác định gốc repo. KHÔNG throw khi
+// không tìm thấy — trả về null. Lý do: findRoot chạy cho MỌI lệnh (kể cả
+// những lệnh sau này như `pp guard-write` được một PreToolUse hook gọi trên
+// từng file Write/Edit ở BẤT KỲ project nào trên máy người dùng). Nếu throw
+// ở đây, chạy `pp guard-write` ngoài repo này sẽ làm cả hook đó chặn mọi
+// chỉnh sửa file trong mọi project khác — hỏng toàn bộ toolchain của họ.
+// Vì vậy: "không có root" không phải là lỗi ở tầng này; từng lệnh cần root
+// tự kiểm tra `root` và báo lỗi rõ ràng nếu cần.
+function findRoot(args) {
+  const i = args.indexOf('--root')
+  if (i !== -1) return resolve(args[i + 1])
+  let dir = process.cwd()
+  while (dir !== '/') {
+    if (existsSync(join(dir, 'constitution.md'))) return dir
+    dir = resolve(dir, '..')
+  }
+  return null
+}
 
 async function main(argv) {
   const [cmd, ...rest] = argv
@@ -21,7 +47,7 @@ async function main(argv) {
     process.stdout.write(`pp: không biết lệnh "${cmd}"\n\n${USAGE}`)
     return 2
   }
-  return await handler(rest)
+  return await handler(rest, { root: findRoot(rest) })
 }
 
 main(process.argv.slice(2))

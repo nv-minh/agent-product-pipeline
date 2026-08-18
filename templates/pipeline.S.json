@@ -1,0 +1,22 @@
+{
+  "feature": "__FEATURE__",
+  "size": "S",
+  "stages": {
+    "10-prd": {
+      "enabled": true,
+      "skills": ["prd-epic", "userstory", "ac"],
+      "inputs": ["00-brief.md", "../../constitution.md"],
+      "outputs": ["10-questions.md", "10-prd.md"],
+      "gate": ["t1", "t2"],
+      "human": true
+    },
+    "40-testplan": {
+      "enabled": true,
+      "skills": ["test-cases", "test-checklist"],
+      "inputs": ["10-prd.md", "30-contract.md?"],
+      "outputs": ["40-testplan.md"],
+      "gate": ["t1", "t2"],
+      "human": false
+    }
+  }
+}
