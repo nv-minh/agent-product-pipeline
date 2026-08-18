@@ -87,7 +87,7 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
                       │ đọc/ghi
 ┌─ Lớp 2: BLACKBOARD (file trong git) ────────────────┐
 │  pinnacle-product/features/<feature>/               │
-│    pipeline.yml · STATE.md · .evidence/             │
+│    pipeline.json · STATE.md · .evidence/            │
 │    00-brief 10-prd 20-ux 30-contract                │
 │    40-testplan 50-security 60-handoff 70-ops        │
 └─────────────────────┬───────────────────────────────┘
@@ -99,10 +99,10 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 
 ### 3.1 Vòng chạy `/pp advance <feature>`
 
-1. `pp status` đọc `pipeline.yml` + `STATE.md` → in ra **stage kế tiếp và lý do** (tất định)
+1. `pp status` đọc `pipeline.json` + `STATE.md` → in ra **stage kế tiếp và lý do** (tất định)
 2. Claude nạp skill của stage đó từ `dev-ba-kit`, đọc **đúng** artifact khai báo trong `inputs:`
 3. Skill ghi artifact vào blackboard
-4. `pp gate <stage>` chạy T1 → (nếu xanh) T2 → ghi `.evidence/<stage>.log`
+4. `pp gate <stage>` chạy T1 → (nếu xanh) T2 → ghi `.evidence/<stage>.<tier>.log` (mỗi tier một file riêng, để T2 không ghi đè exit code của T1)
 5. Xanh → `STATE.md` ghi `done`. Đỏ → trả lỗi cho Claude sửa, **trần 3 vòng**, rồi `blocked` + notification
 
 ---
@@ -123,7 +123,7 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 
 Chỉ **2 human gate**: sau `10-prd` (sai ở đây hỏng toàn bộ hạ nguồn) và sau `30-contract` (đổi contract sau khi BE đã code là đắt nhất). AIDLC dùng 4 gate — quá nhiều cho người làm một mình.
 
-### 4.1 `pipeline.yml`
+### 4.1 `pipeline.json`
 
 ```yaml
 feature: feedback-collector
@@ -348,12 +348,12 @@ updated: 2026-08-18T22:41:03+07:00
 current: 40-testplan
 stages:
   10-prd:      {status: done,    attempts: 2, gate: pass, human: approved,
-                inputs_hash: a3f9c1, evidence: .evidence/10-prd.log}
+                inputs_hash: a3f9c1, evidence: .evidence/10-prd.t1.log}
   20-ux:       {status: skipped, reason: disabled}
   30-contract: {status: done,    attempts: 1, gate: pass, human: approved,
-                inputs_hash: 77b204, evidence: .evidence/30-contract.log}
+                inputs_hash: 77b204, evidence: .evidence/30-contract.t1.log}
   40-testplan: {status: failed,  attempts: 1, gate: fail,
-                evidence: .evidence/40-testplan.log}
+                evidence: .evidence/40-testplan.t1.log}
   50-security: {status: pending}
   60-dev:      {status: pending}
   90-archive:  {status: pending}
@@ -362,7 +362,7 @@ stages:
 ### 7.4 Evidence file
 
 ```
-# .evidence/40-testplan.log
+# .evidence/40-testplan.t1.log
 [2026-08-18T22:40:51+07:00]  pp gate 40-testplan --tier t1
 $ pp-check placeholders 40-testplan.md
 Exit status: 0
@@ -384,7 +384,7 @@ Luật: quét evidence, gặp **bất kỳ `Exit status:` khác 0** → stage kh
 
 ```
 pp init feedback-collector
-   └─→ folder + pipeline.yml (theo size) + 00-brief.md rỗng
+   └─→ folder + pipeline.json (theo size) + 00-brief.md rỗng
 
 NGƯỜI viết 00-brief.md   (3–10 dòng, viết dạng DELTA so với hiện trạng)
 
@@ -468,7 +468,7 @@ Vòng lặp có trần và thông báo tái dùng nguyên cơ chế `HERDR_ORCHE
 | `failed` | gate đỏ, `attempts < 3` | tự sửa vòng tiếp |
 | `blocked` | `attempts = 3` | `pp unblock <stage>` — bắt buộc kèm lý do → ghi `lessons/` |
 | `stale` | input thượng nguồn đã đổi | chạy lại gate |
-| `skipped` | tắt trong `pipeline.yml` | bật lại rồi `pp advance` |
+| `skipped` | tắt trong `pipeline.json` | bật lại rồi `pp advance` |
 | `done` | gate xanh + evidence sạch | — |
 
 ### 9.2 Cửa thoát hiểm (bắt buộc phải có)
@@ -541,7 +541,7 @@ Bước 0 — feature mồi
   Mục đích duy nhất: thu output thật.
 
 Bước 1 — schema bám output thật
-  Viết schema/<stage>.yml khớp ĐỊNH DẠNG THẬT.
+  Viết schema/<stage>.json khớp ĐỊNH DẠNG THẬT.
   Format quá tự do để bắt ID → thêm `pp normalize` chèn XML tag sau khi skill chạy.
   Lớp dev-ba-kit vẫn bất khả xâm phạm.
 
