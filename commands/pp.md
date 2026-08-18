@@ -11,7 +11,15 @@ lý đúng theo loại output đó — `pp advance` in đúng một trong bốn 
       Subagent chỉ được đọc các file trong dòng `Đọc`, chỉ được ghi các file trong dòng `Ghi`.
    2. Khi subagent xong, chạy `pp gate <feature> <stage>`.
    3. Gate đỏ → đưa nguyên output gate cho subagent sửa, chạy lại gate. Tối đa 3 lần.
-   4. Gate xanh và stage cần duyệt → dừng, báo người dùng chạy `pp approve`.
+   2b. Gate xanh và `gate` của stage trong `pipeline.json` có `"t2"`: chạy `pp review-prompt
+       <feature> <stage>`, mở một subagent MỚI dùng agent `pp-reviewer` (agents/pp-reviewer.md)
+       với nguyên prompt đó làm input — subagent chỉ đọc, không ghi file nào. Lưu đúng nguyên văn
+       JSON subagent trả về vào `features/<feature>/.review-<stage>.json`, rồi chạy `pp
+       review-record <feature> <stage> --verdict features/<feature>/.review-<stage>.json`. Verdict
+       có finding `severity: high` (exit 1) → đưa evidence T2 cho subagent viết-artifact sửa, quay
+       lại bước 2 (gate T1 lại). Tính vào cùng giới hạn tối đa 3 lần của bước 3.
+   4. Gate T1 (và T2, nếu stage có) đều xanh và stage cần duyệt → dừng, báo người dùng chạy `pp
+      approve`.
 
 2. **`✓ <feature>: mọi stage đã xong`** (`complete`, exit 0): báo cho người dùng biết feature đã
    hoàn tất mọi stage đã bật (`enabled`). Không làm gì thêm — không có stage nào để chạy tiếp.

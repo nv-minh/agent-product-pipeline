@@ -6,6 +6,7 @@ import { statusCmd } from '../lib/commands/status.js'
 import { gateCmd } from '../lib/commands/gate.js'
 import { advanceCmd } from '../lib/commands/advance.js'
 import { guardWriteCmd, guardStopCmd } from '../lib/commands/guard.js'
+import { reviewPromptCmd, reviewRecordCmd } from '../lib/commands/review.js'
 import { parseArgs } from '../lib/args.js'
 
 const COMMANDS = {
@@ -15,6 +16,8 @@ const COMMANDS = {
   advance: advanceCmd,
   'guard-write': guardWriteCmd,
   'guard-stop': guardStopCmd,
+  'review-prompt': reviewPromptCmd,
+  'review-record': reviewRecordCmd,
 } // các task sau đăng ký thêm vào đây
 
 const USAGE = `Usage: pp <command> [options]
@@ -26,6 +29,9 @@ Commands:
   advance <feature>                   In chỉ thị cho stage kế tiếp (pp không tự gọi LLM)
   guard-write --path <abs>            [hook] chặn agent ghi STATE.md/.evidence/ (dùng bởi PreToolUse)
   guard-stop <feature>                [hook] chặn kết thúc phiên khi còn stage chưa xanh (dùng bởi Stop)
+  review-prompt <feature> <stage>     In prompt review đối kháng (artifact + rubric + constitution)
+  review-record <feature> <stage> --verdict <file.json>
+                                       Đọc verdict JSON, ghi evidence T2, cập nhật state
 
 Options:
   --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
