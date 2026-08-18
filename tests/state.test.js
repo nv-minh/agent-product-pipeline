@@ -43,8 +43,14 @@ test('hashInputs đổi khi nội dung input đổi', () => {
 
 test('input optional vắng mặt không làm hỏng hash', () => {
   const d = tmpFeature()
-  const inputs = [{ path: '00-brief.md', optional: false }, { path: 'khong-co.md', optional: true }]
-  assert.equal(typeof hashInputs(d, inputs), 'string')
+  const withOptional = hashInputs(d, [
+    { path: '00-brief.md', optional: false },
+    { path: 'khong-co.md', optional: true }
+  ])
+  const withoutOptional = hashInputs(d, [
+    { path: '00-brief.md', optional: false }
+  ])
+  assert.equal(withOptional, withoutOptional)
 })
 
 test('input bắt buộc vắng mặt thì ném lỗi', () => {
@@ -59,4 +65,58 @@ test('isStale = true khi input đổi sau khi stage đã done', () => {
   assert.equal(isStale(d, config, state, '40-testplan'), false)
   writeFileSync(join(d, '10-prd.md'), 'prd đã sửa\n')
   assert.equal(isStale(d, config, state, '40-testplan'), true)
+})
+
+test('reason với --> không làm hỏng round-trip', () => {
+  const d = tmpFeature()
+  const original = {
+    feature: 'test',
+    stages: {
+      '10-prd': {
+        status: 'done',
+        reason: 'already done --> skip'
+      }
+    }
+  }
+  writeState(d, original)
+  const loaded = readState(d)
+  assert.equal(loaded.stages['10-prd'].reason, 'already done --> skip')
+})
+
+test('isStale = true khi done mà không có inputs_hash và chưa overridden', () => {
+  const d = tmpFeature()
+  const config = { stages: { '40-testplan': { inputs: [] } } }
+  const state = { stages: { '40-testplan': { status: 'done' } } }
+  assert.equal(isStale(d, config, state, '40-testplan'), true)
+})
+
+test('isStale = false khi overridden dù không có inputs_hash', () => {
+  const d = tmpFeature()
+  const config = { stages: { '40-testplan': { inputs: [] } } }
+  const state = { stages: { '40-testplan': { status: 'done', overridden: true } } }
+  assert.equal(isStale(d, config, state, '40-testplan'), false)
+})
+
+test('round-trip với toàn bộ StageState fields và unknown keys', () => {
+  const d = tmpFeature()
+  const original = {
+    feature: 'demo',
+    current: '20-design',
+    stages: {
+      '10-prd': {
+        status: 'done',
+        attempts: 3,
+        gate: 'approval_pending',
+        human: 'alice@example.com',
+        inputs_hash: 'abc123',
+        evidence: 'https://example.com/evidence',
+        overridden: true,
+        reason: 'approved by CEO',
+        custom_field: 'custom_value'
+      }
+    }
+  }
+  writeState(d, original)
+  const loaded = readState(d)
+  assert.deepEqual(loaded.stages['10-prd'], original.stages['10-prd'])
 })
