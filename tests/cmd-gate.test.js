@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
+import { writeState } from '../lib/state.js'
 import { makeRoot, passT1Prd } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
@@ -109,4 +110,44 @@ test('pp advance nêu đích danh các tier bắt buộc của stage kế tiếp
   assert.equal(r.code, 0)
   assert.match(r.out, /Tier bắt buộc\s*:\s*t1, t2/)
   assert.match(r.out, /pp review-record demo 10-prd/)
+})
+
+// FIX review cuối (finding 9c): đột biến `return 3` -> `return 0` ở
+// lib/commands/advance.js qua sạch 173 test cũ, dù commands/pp.md khoá chỉ
+// thị an toàn quan trọng nhất của nó vào đúng exit code 3 ("dừng, KHÔNG được
+// tự thử lại stage đó dưới bất kỳ hình thức nào").
+test('pp advance với stage blocked thì exit 3 và in hai lối ra cho người', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  writeState(join(r0, 'features/demo'), {
+    feature: 'demo',
+    stages: { '10-prd': { status: 'blocked', attempts: 3, gate: 'fail' } },
+  })
+  const r = run(['advance', 'demo', '--root', r0])
+  assert.equal(r.code, 3)
+  assert.match(r.out, /⛔/)
+  assert.match(r.out, /blocked/)
+  assert.match(r.out, /pp unblock/)
+})
+
+test('pp status với stage blocked cũng exit 3', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  writeState(join(r0, 'features/demo'), {
+    feature: 'demo',
+    stages: { '10-prd': { status: 'blocked', attempts: 3, gate: 'fail' } },
+  })
+  assert.equal(run(['status', 'demo', '--root', r0]).code, 3)
+})
+
+// deferred từ review Task 4: stage blocked không có `attempts` (STATE.md bị
+// sửa tay) từng in "đã thử undefined/3 lần".
+test('stage blocked thiếu attempts thì in 0/3, không phải undefined/3', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  writeState(join(r0, 'features/demo'), { feature: 'demo', stages: { '10-prd': { status: 'blocked' } } })
+  const r = run(['advance', 'demo', '--root', r0])
+  assert.equal(r.code, 3)
+  assert.doesNotMatch(r.out, /undefined/)
+  assert.match(r.out, /0\/3/)
 })

@@ -252,6 +252,11 @@ test('report với feature cụ thể chỉ in feature đó', () => {
 
 // CARRY-FORWARD: một gate bị override ≥3 lần nghĩa là gate đó sai — pp report
 // phải nêu bật điều này (constitution.md điều khoản override).
+//
+// FIX review cuối (finding 9b): bản cũ của test này chỉ khớp /10-prd/ và /3/ —
+// cả hai đều được thoả bởi MỘT DÒNG BẢNG bình thường, nên xoá sạch khối cảnh
+// báo trong lib/commands/report.js vẫn xanh. Nay khẳng định đúng nội dung cảnh
+// báo, và khẳng định nó KHÔNG xuất hiện khi chưa tới ngưỡng.
 test('report cảnh báo khi một stage bị override từ 3 lần trở lên', () => {
   const r0 = root()
   run(['override', 'demo', '10-prd', '--reason', 'lần 1', '--root', r0])
@@ -259,10 +264,21 @@ test('report cảnh báo khi một stage bị override từ 3 lần trở lên',
   run(['override', 'demo', '10-prd', '--reason', 'lần 3', '--root', r0])
   const r = run(['report', 'demo', '--root', r0])
   assert.equal(r.code, 0)
-  assert.match(r.out, /10-prd/)
-  assert.match(r.out, /3/)
+  assert.match(r.out, /⚠ stage 10-prd đã bị override 3 lần \(≥3\)/)
+  assert.match(r.out, /gate đó sai, sửa luật gate, đừng sửa người/)
   const dir = join(r0, 'features/demo')
   assert.equal(readState(dir).stages['10-prd'].override_count, 3)
+})
+
+test('report KHÔNG cảnh báo khi mới override 2 lần (ngưỡng là 3)', () => {
+  const r0 = root()
+  run(['override', 'demo', '10-prd', '--reason', 'lần 1', '--root', r0])
+  run(['override', 'demo', '10-prd', '--reason', 'lần 2', '--root', r0])
+  const r = run(['report', 'demo', '--root', r0])
+  assert.equal(r.code, 0)
+  assert.match(r.out, /10-prd/)
+  assert.doesNotMatch(r.out, /⚠ stage/)
+  assert.doesNotMatch(r.out, /sửa luật gate/)
 })
 
 test('report: chưa có feature nào thì không crash', () => {
