@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, cpSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readConfig } from '../lib/config.js'
-import { readState } from '../lib/state.js'
+import { readState, writeState } from '../lib/state.js'
 import { runT1 } from '../lib/gate.js'
 
 function feature(prdText) {
@@ -43,4 +43,82 @@ test('đỏ lần thứ 3 thì chuyển blocked', () => {
   const failing = [{ name: 'x', run: () => ({ name: 'x', ok: false, messages: ['hỏng'] }) }]
   for (let i = 0; i < 3; i++) runT1(d, readConfig(d), readState(d), '10-prd', failing)
   assert.equal(readState(d).stages['10-prd'].status, 'blocked')
+})
+
+// FINDING 1: In-memory state reuse should advance attempts
+test('FINDING 1: in-memory state reuse nên tăng attempts mỗi lần', () => {
+  const d = feature('TBD\n')
+  const config = readConfig(d)
+  const failing = [{ name: 'x', run: () => ({ name: 'x', ok: false, messages: ['fail'] }) }]
+  const inmemState = readState(d) // Capture once
+  runT1(d, config, inmemState, '10-prd', failing)
+  inmemState.stages = readState(d).stages // Sync back
+  runT1(d, config, inmemState, '10-prd', failing)
+  inmemState.stages = readState(d).stages
+  runT1(d, config, inmemState, '10-prd', failing)
+  // Without fix: attempts stays 1; with fix: attempts = 3
+  assert.equal(readState(d).stages['10-prd'].attempts, 3)
+})
+
+// FINDING 3: Throwing check should be caught and recorded
+test('FINDING 3: nếu check throw thì ghi lại và tiếp tục', () => {
+  const d = feature('content\n')
+  const r = runT1(d, readConfig(d), readState(d), '10-prd', [
+    { name: 'thrower', run: () => { throw new Error('boom') } },
+    { name: 'ok', run: () => ({ name: 'ok', ok: true, messages: [] }) },
+  ])
+  assert.equal(r.ok, false) // Run failed because one check threw
+  const log = readFileSync(join(d, '.evidence/10-prd.log'), 'utf8')
+  assert.match(log, /boom/)
+})
+
+// FINDING 4: Missing artifact should be recorded as artifact-exists check
+test('FINDING 4: tập tin hiệu ứng thiếu thì ghi lại thất bại', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-gate-'))
+  cpSync(new URL('./fixtures/minimal/pipeline.json', import.meta.url).pathname, join(d, 'pipeline.json'))
+  writeFileSync(join(d, '00-brief.md'), 'brief\n')
+  // Note: 10-prd.md NOT created
+  const r = runT1(d, readConfig(d), readState(d), '10-prd', [])
+  assert.equal(r.ok, false)
+  const s = readState(d)
+  assert.equal(s.stages['10-prd'].status, 'failed')
+  const log = readFileSync(join(d, '.evidence/10-prd.log'), 'utf8')
+  assert.match(log, /artifact-exists/)
+  assert.match(log, /10-prd\.md/)
+})
+
+// FINDING 6: human field should be cleared on re-gate
+test('FINDING 6: human trường nên bị xóa khi chạy lại gate', () => {
+  const d = feature('content\n')
+  const config = readConfig(d)
+  const state = readState(d)
+  // Manually set human: 'approved' in the stage
+  state.stages = state.stages || {}
+  state.stages['10-prd'] = state.stages['10-prd'] || {}
+  state.stages['10-prd'].human = 'approved'
+  writeState(d, state)
+
+  const r = runT1(d, config, state, '10-prd', [
+    { name: 'check', run: () => ({ name: 'check', ok: true, messages: [] }) },
+  ])
+  const s = readState(d)
+  // human field should be cleared/absent
+  assert.equal(s.stages['10-prd'].human, undefined)
+})
+
+// FINDING 6b: human field cleared on fail path too
+test('FINDING 6b: human trường bị xóa ngay cả khi gate đỏ', () => {
+  const d = feature('content\n')
+  const config = readConfig(d)
+  const state = readState(d)
+  state.stages = state.stages || {}
+  state.stages['10-prd'] = state.stages['10-prd'] || {}
+  state.stages['10-prd'].human = 'approved'
+  writeState(d, state)
+
+  const r = runT1(d, config, state, '10-prd', [
+    { name: 'check', run: () => ({ name: 'check', ok: false, messages: ['failed'] }) },
+  ])
+  const s = readState(d)
+  assert.equal(s.stages['10-prd'].human, undefined)
 })
