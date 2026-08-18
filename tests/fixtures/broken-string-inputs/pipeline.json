@@ -1,0 +1,7 @@
+{
+  "feature": "broken-string-inputs",
+  "size": "S",
+  "stages": {
+    "30-test": { "enabled": true, "inputs": "10-prd.md", "outputs": ["out.md"], "gate": ["t1"] }
+  }
+}

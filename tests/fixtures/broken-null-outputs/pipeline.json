@@ -1,0 +1,7 @@
+{
+  "feature": "broken-null-outputs",
+  "size": "S",
+  "stages": {
+    "20-test": { "enabled": true, "inputs": ["10-prd.md"], "outputs": null, "gate": ["t1"] }
+  }
+}
