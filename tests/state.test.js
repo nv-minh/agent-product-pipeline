@@ -1,0 +1,62 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { readState, writeState, hashInputs, isStale } from '../lib/state.js'
+
+function tmpFeature() {
+  const d = mkdtempSync(join(tmpdir(), 'pp-'))
+  writeFileSync(join(d, '00-brief.md'), 'brief v1\n')
+  writeFileSync(join(d, '10-prd.md'), 'prd\n')
+  return d
+}
+
+test('chưa có STATE.md thì trả state rỗng', () => {
+  const d = tmpFeature()
+  assert.deepEqual(readState(d).stages, {})
+})
+
+test('ghi rồi đọc lại giữ nguyên dữ liệu', () => {
+  const d = tmpFeature()
+  writeState(d, { feature: 'demo', current: '10-prd', stages: { '10-prd': { status: 'done', attempts: 2 } } })
+  const s = readState(d)
+  assert.equal(s.stages['10-prd'].status, 'done')
+  assert.equal(s.stages['10-prd'].attempts, 2)
+})
+
+test('STATE.md có cảnh báo DO NOT EDIT và bảng cho người đọc', () => {
+  const d = tmpFeature()
+  writeState(d, { feature: 'demo', current: '10-prd', stages: { '10-prd': { status: 'done' } } })
+  const txt = readFileSync(join(d, 'STATE.md'), 'utf8')
+  assert.match(txt, /DO NOT EDIT/)
+  assert.match(txt, /\| 10-prd \|/)
+})
+
+test('hashInputs đổi khi nội dung input đổi', () => {
+  const d = tmpFeature()
+  const inputs = [{ path: '00-brief.md', optional: false }]
+  const h1 = hashInputs(d, inputs)
+  writeFileSync(join(d, '00-brief.md'), 'brief v2\n')
+  assert.notEqual(h1, hashInputs(d, inputs))
+})
+
+test('input optional vắng mặt không làm hỏng hash', () => {
+  const d = tmpFeature()
+  const inputs = [{ path: '00-brief.md', optional: false }, { path: 'khong-co.md', optional: true }]
+  assert.equal(typeof hashInputs(d, inputs), 'string')
+})
+
+test('input bắt buộc vắng mặt thì ném lỗi', () => {
+  const d = tmpFeature()
+  assert.throws(() => hashInputs(d, [{ path: 'thieu.md', optional: false }]), /thieu\.md/)
+})
+
+test('isStale = true khi input đổi sau khi stage đã done', () => {
+  const d = tmpFeature()
+  const config = { stages: { '40-testplan': { id: '40-testplan', inputs: [{ path: '10-prd.md', optional: false }] } } }
+  const state = { stages: { '40-testplan': { status: 'done', inputs_hash: hashInputs(d, config.stages['40-testplan'].inputs) } } }
+  assert.equal(isStale(d, config, state, '40-testplan'), false)
+  writeFileSync(join(d, '10-prd.md'), 'prd đã sửa\n')
+  assert.equal(isStale(d, config, state, '40-testplan'), true)
+})
