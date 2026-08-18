@@ -3,15 +3,19 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { initCmd } from '../lib/commands/init.js'
 import { statusCmd } from '../lib/commands/status.js'
+import { gateCmd } from '../lib/commands/gate.js'
+import { advanceCmd } from '../lib/commands/advance.js'
 import { parseArgs } from '../lib/args.js'
 
-const COMMANDS = { init: initCmd, status: statusCmd }   // các task sau đăng ký thêm vào đây
+const COMMANDS = { init: initCmd, status: statusCmd, gate: gateCmd, advance: advanceCmd }   // các task sau đăng ký thêm vào đây
 
 const USAGE = `Usage: pp <command> [options]
 
 Commands:
-  init <feature> [--size S|M]   Tạo blackboard cho feature mới
-  status <feature>              In stage kế tiếp và lý do
+  init <feature> [--size S|M]         Tạo blackboard cho feature mới
+  status <feature>                    In stage kế tiếp và lý do
+  gate <feature> <stage> [--tier t1]  Chạy gate cho một stage: exit 0 xanh, 1 đỏ
+  advance <feature>                   In chỉ thị cho stage kế tiếp (pp không tự gọi LLM)
 
 Options:
   --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
