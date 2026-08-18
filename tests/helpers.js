@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 
 export const PP = new URL('../bin/pp', import.meta.url).pathname
 export const REPO = new URL('../', import.meta.url).pathname
@@ -132,4 +132,19 @@ export function verdictFile(root, feature, stageId, findings = []) {
   const p = join(root, 'features', feature, `.review-${stageId}.json`)
   writeFileSync(p, JSON.stringify({ findings }))
   return p
+}
+
+// Chạy `pp` và giữ stdout/stderr TÁCH RIÊNG. Cần cho các test hook: hợp đồng
+// của Claude Code là "chặn = exit 2 + lý do ra stderr", nên gộp hai luồng lại
+// là mất đúng thứ đang được kiểm.
+export function runSplit(args, opts = {}) {
+  const r = spawnSync('node', [PP, ...args], { encoding: 'utf8', ...opts })
+  return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
+}
+
+// Chạy chính file hook shell (không phải bin/pp) — để `dirname "$0"` bên
+// trong nó thực sự được thi hành ít nhất một lần.
+export function runHook(script, opts = {}) {
+  const r = spawnSync('bash', [join(REPO, 'hooks', script)], { encoding: 'utf8', ...opts })
+  return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
 }
