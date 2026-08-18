@@ -1,0 +1,9 @@
+{
+  "requiredHeadings": ["## Test cases"],
+  "requiredTcAttrs": ["id", "ac_ref", "type", "priority"],
+  "requiredTcFields": ["precondition", "steps", "expected"],
+  "edgeCaseChecklist": [
+    "null", "rỗng", "vượt max length", "unicode hoặc emoji", "số âm",
+    "0", "số rất lớn", "sai định dạng", "trùng lặp", "gọi đồng thời", "sai quyền"
+  ]
+}
