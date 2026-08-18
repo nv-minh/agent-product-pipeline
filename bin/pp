@@ -5,9 +5,17 @@ import { initCmd } from '../lib/commands/init.js'
 import { statusCmd } from '../lib/commands/status.js'
 import { gateCmd } from '../lib/commands/gate.js'
 import { advanceCmd } from '../lib/commands/advance.js'
+import { guardWriteCmd, guardStopCmd } from '../lib/commands/guard.js'
 import { parseArgs } from '../lib/args.js'
 
-const COMMANDS = { init: initCmd, status: statusCmd, gate: gateCmd, advance: advanceCmd }   // các task sau đăng ký thêm vào đây
+const COMMANDS = {
+  init: initCmd,
+  status: statusCmd,
+  gate: gateCmd,
+  advance: advanceCmd,
+  'guard-write': guardWriteCmd,
+  'guard-stop': guardStopCmd,
+} // các task sau đăng ký thêm vào đây
 
 const USAGE = `Usage: pp <command> [options]
 
@@ -16,6 +24,8 @@ Commands:
   status <feature>                    In stage kế tiếp và lý do
   gate <feature> <stage> [--tier t1]  Chạy gate cho một stage: exit 0 xanh, 1 đỏ
   advance <feature>                   In chỉ thị cho stage kế tiếp (pp không tự gọi LLM)
+  guard-write --path <abs>            [hook] chặn agent ghi STATE.md/.evidence/ (dùng bởi PreToolUse)
+  guard-stop <feature>                [hook] chặn kết thúc phiên khi còn stage chưa xanh (dùng bởi Stop)
 
 Options:
   --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
