@@ -7,6 +7,8 @@ import { gateCmd } from '../lib/commands/gate.js'
 import { advanceCmd } from '../lib/commands/advance.js'
 import { guardWriteCmd, guardStopCmd } from '../lib/commands/guard.js'
 import { reviewPromptCmd, reviewRecordCmd } from '../lib/commands/review.js'
+import { approveCmd, overrideCmd, unblockCmd } from '../lib/commands/human.js'
+import { reportCmd } from '../lib/commands/report.js'
 import { parseArgs } from '../lib/args.js'
 
 const COMMANDS = {
@@ -18,7 +20,11 @@ const COMMANDS = {
   'guard-stop': guardStopCmd,
   'review-prompt': reviewPromptCmd,
   'review-record': reviewRecordCmd,
-} // các task sau đăng ký thêm vào đây
+  approve: approveCmd,
+  override: overrideCmd,
+  unblock: unblockCmd,
+  report: reportCmd,
+} // Task 14 — task code cuối cùng: mọi lệnh của `pp` đã đăng ký xong ở đây
 
 const USAGE = `Usage: pp <command> [options]
 
@@ -32,6 +38,15 @@ Commands:
   review-prompt <feature> <stage>     In prompt review đối kháng (artifact + rubric + constitution)
   review-record <feature> <stage> --verdict <file.json>
                                        Đọc verdict JSON, ghi evidence T2, cập nhật state
+  approve <feature> <stage>           Duyệt một stage đã gate pass (bắt buộc để advance đi tiếp)
+  override <feature> <stage> --reason "<chữ>"
+                                       Cửa thoát hiểm: ép một stage thành done bất kể gate. Bắt
+                                       buộc lý do, luôn ghi vào lessons/<stage>.md
+  unblock <feature> <stage> --reason "<chữ>"
+                                       Gỡ một stage blocked: reset attempts về 0. Bắt buộc lý do,
+                                       cũng ghi vào lessons/<stage>.md
+  report [<feature>]                  In bảng stage/status/attempts/override cho một hoặc mọi
+                                       feature; nêu bật stage bị override ≥3 lần
 
 Options:
   --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
