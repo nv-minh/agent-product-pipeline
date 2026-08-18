@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, cpSync, readFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, cpSync, readFileSync, appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readConfig } from '../lib/config.js'
 import { readState, writeState } from '../lib/state.js'
-import { runT1 } from '../lib/gate.js'
+import { runT1, stageDone, requiredTiers } from '../lib/gate.js'
 
 function feature(prdText) {
   const d = mkdtempSync(join(tmpdir(), 'pp-gate-'))
@@ -134,4 +134,58 @@ test('REVIEW FINDING 1: stage id không tồn tại thì throw Error nêu tên s
     () => runT1(d, config, readState(d), '99-nope', []),
     /99-nope/,
   )
+})
+
+// ─── Hàm quyết định dùng chung (FIX review cuối, finding 1+3+4) ───
+
+test('stageDone: tier chưa có kết quả thì stage chưa xong và nêu tên tier', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  config.stages['10-prd'].gate = ['t1', 't2']
+  const v = stageDone(d, config, readState(d), '10-prd')
+  assert.equal(v.done, false)
+  assert.deepEqual(v.outstanding, ['t1', 't2'])
+})
+
+test('stageDone: T1 pass mà T2 chưa chạy thì vẫn chưa xong', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  config.stages['10-prd'].gate = ['t1', 't2']
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  const v = stageDone(d, config, readState(d), '10-prd')
+  assert.equal(v.done, false)
+  assert.deepEqual(v.outstanding, ['t2'])
+  assert.notEqual(readState(d).stages['10-prd'].status, 'done')
+})
+
+// Điều 2 — hoàn thành đọc từ đĩa, không từ cờ trong state.
+test('stageDone: state ghi pass nhưng log evidence có exit khác 0 thì KHÔNG xong', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  assert.equal(readState(d).stages['10-prd'].status, 'done')
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, true)
+
+  appendFileSync(join(d, '.evidence/10-prd.t1.log'), 'Exit status: 1\n')
+  const v = stageDone(d, config, readState(d), '10-prd')
+  assert.equal(v.done, false)
+  assert.deepEqual(v.outstanding, ['t1'])
+})
+
+test('stageDone: state khai pass nhưng KHÔNG có file evidence thì không xong', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  const st = readState(d)
+  st.stages = { '10-prd': { status: 'done', tiers: { t1: { result: 'pass' } } } }
+  writeState(d, st)
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, false)
+})
+
+// `gate: []` không được là cửa hậu tới done mà không cần exit code nào.
+test('requiredTiers: gate rỗng vẫn bắt buộc t1', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  config.stages['10-prd'].gate = []
+  assert.deepEqual(requiredTiers(config, '10-prd'), ['t1'])
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, false)
 })

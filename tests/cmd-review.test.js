@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, cpSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, cpSync, rmSync, appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { readState, writeState } from '../lib/state.js'
+import { passT1Prd, PRD } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -25,10 +26,10 @@ function root() {
 test('review-prompt chứa artifact, rubric và constitution', () => {
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
-  writeFileSync(join(r0, 'features/demo/10-prd.md'), 'NỘI DUNG PRD')
+  passT1Prd(r0)
   const r = run(['review-prompt', 'demo', '10-prd', '--root', r0])
   assert.equal(r.code, 0)
-  assert.match(r.out, /NỘI DUNG PRD/)
+  assert.match(r.out, /US-1/)
   assert.match(r.out, /Điều 1 — Đơn giản/)
   assert.match(r.out, /REJECT/)
 })
@@ -37,7 +38,7 @@ test('verdict có finding high thì exit 1 và state = failed', () => {
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
-  writeFileSync(join(f, '10-prd.md'), 'x')
+  passT1Prd(r0)
   const v = join(f, 'verdict.json')
   writeFileSync(v, JSON.stringify({ findings: [
     { criterion: 'AC đo được', verdict: 'fail', severity: 'high', evidence: 'AC-1-1 mơ hồ', fix: 'viết lại EARS' },
@@ -51,7 +52,7 @@ test('chỉ có finding medium thì exit 0', () => {
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
-  writeFileSync(join(f, '10-prd.md'), 'x')
+  passT1Prd(r0)
   const v = join(f, 'verdict.json')
   writeFileSync(v, JSON.stringify({ findings: [
     { criterion: 'x', verdict: 'fail', severity: 'medium', evidence: 'e', fix: 'f' },
@@ -120,7 +121,7 @@ test('review-record: findings rỗng hoặc vắng mặt thì coi là PASS, exit
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
-  writeFileSync(join(f, '10-prd.md'), 'x')
+  passT1Prd(r0)
 
   const v1 = join(f, 'empty.json')
   writeFileSync(v1, JSON.stringify({ findings: [] }))
@@ -135,10 +136,10 @@ test('review-record: human bị xoá trên nhánh PASS — re-review revoke appr
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
-  writeFileSync(join(f, '10-prd.md'), 'x')
+  passT1Prd(r0)
   const s = readState(f)
   s.stages = s.stages ?? {}
-  s.stages['10-prd'] = { ...s.stages['10-prd'], status: 'done', human: 'approved' }
+  s.stages['10-prd'] = { ...s.stages['10-prd'], human: 'approved' }
   writeState(f, s)
 
   const v = join(f, 'verdict.json')
@@ -151,10 +152,10 @@ test('review-record: human bị xoá trên nhánh FAIL', () => {
   const r0 = root()
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
-  writeFileSync(join(f, '10-prd.md'), 'x')
+  passT1Prd(r0)
   const s = readState(f)
   s.stages = s.stages ?? {}
-  s.stages['10-prd'] = { ...s.stages['10-prd'], status: 'done', human: 'approved' }
+  s.stages['10-prd'] = { ...s.stages['10-prd'], human: 'approved' }
   writeState(f, s)
 
   const v = join(f, 'verdict.json')
@@ -163,4 +164,74 @@ test('review-record: human bị xoá trên nhánh FAIL', () => {
   ] }))
   run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(readState(f).stages['10-prd'].human, undefined)
+})
+
+// ─── FIX review cuối: thứ tự tier là LUẬT TRONG CODE, không phải văn xuôi ───
+
+// Lỗ hổng gốc: `review-record` ghi `done` chỉ từ một file JSON do LLM viết,
+// trên một feature CHƯA TỪNG chạy gate, không có PRD, không có questions.
+test('review-record TRƯỚC khi T1 xanh thì từ chối, exit 1', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const f = join(r0, 'features/demo')
+  writeFileSync(join(f, '10-prd.md'), 'PRD giả, chưa từng qua gate')
+  const v = join(f, 'verdict.json')
+  writeFileSync(v, JSON.stringify({ findings: [] }))
+
+  const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
+  assert.equal(r.code, 1)
+  assert.match(r.out, /T1/)
+  const st = readState(f).stages['10-prd']
+  assert.notEqual(st?.status, 'done')
+})
+
+test('review-prompt TRƯỚC khi T1 xanh thì từ chối, exit 1 (không tốn token cho T2)', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  writeFileSync(join(r0, 'features/demo/10-prd.md'), 'PRD giả')
+  const r = run(['review-prompt', 'demo', '10-prd', '--root', r0])
+  assert.equal(r.code, 1)
+  assert.match(r.out, /T1/)
+})
+
+test('stage khai báo ["t1","t2"] KHÔNG thể done chỉ bằng T1', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  passT1Prd(r0)
+  const st = readState(join(r0, 'features/demo')).stages['10-prd']
+  assert.equal(st.tiers.t1.result, 'pass')
+  assert.notEqual(st.status, 'done')
+  assert.deepEqual(st.outstanding, ['t2'])
+})
+
+test('T1 xanh rồi T2 xanh thì stage mới done', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  passT1Prd(r0)
+  const f = join(r0, 'features/demo')
+  const v = join(f, 'verdict.json')
+  writeFileSync(v, JSON.stringify({ findings: [] }))
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
+  const st = readState(f).stages['10-prd']
+  assert.equal(st.status, 'done')
+  assert.equal(st.gate, 'pass')
+  assert.equal(st.tiers.t1.result, 'pass')
+  assert.equal(st.tiers.t2.result, 'pass')
+})
+
+// Điều 2: `done` đến từ exit code ghi trong `.evidence/`, không từ cờ trong
+// state. Bẻ log T1 (thêm một dòng `Exit status: 1`) thì lần đánh giá kế tiếp
+// phải thấy stage KHÔNG còn xong, dù state vẫn ghi tiers.t1.result = pass.
+test('bẻ log evidence T1 thì lần đánh giá kế tiếp coi stage là chưa xong', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  passT1Prd(r0)
+  const f = join(r0, 'features/demo')
+  appendFileSync(join(f, '.evidence/10-prd.t1.log'), 'Exit status: 1\n')
+
+  const v = join(f, 'verdict.json')
+  writeFileSync(v, JSON.stringify({ findings: [] }))
+  const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
+  assert.equal(r.code, 1)
+  assert.notEqual(readState(f).stages['10-prd'].status, 'done')
 })

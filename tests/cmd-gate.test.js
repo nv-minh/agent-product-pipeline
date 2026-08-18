@@ -1,9 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, cpSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, cpSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+
+import { makeRoot, passT1Prd } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -73,4 +75,38 @@ test('gate với stage lạ báo rõ tên stage sai và liệt kê stage thật,
   assert.equal(r.code, 2)
   assert.match(r.out, /99-nope/)
   assert.match(r.out, /10-prd/)
+})
+
+// ─── FIX review cuối (4e/4f): gate và advance phải NÓI SỰ THẬT về tier ───
+
+test('pp gate: T1 xanh trên stage có t2 thì nói rõ stage CHƯA done và nêu tier còn thiếu', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const r = passT1Prd(r0)
+  assert.match(r.out, /RESULT: PASS \(t1\)/)
+  assert.match(r.out, /CHƯA done/)
+  assert.match(r.out, /t2/)
+  assert.match(r.out, /review-prompt/)
+})
+
+test('pp gate: stage chỉ khai báo t1 thì T1 xanh là done, in xác nhận', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  // Hạ 10-prd xuống chỉ còn tier t1 để kiểm nhánh done ngay sau T1.
+  const pj = join(r0, 'features/demo/pipeline.json')
+  const cfg = JSON.parse(readFileSync(pj, 'utf8'))
+  cfg.stages['10-prd'].gate = ['t1']
+  writeFileSync(pj, JSON.stringify(cfg, null, 2))
+  const r = passT1Prd(r0)
+  assert.match(r.out, /done/)
+  assert.doesNotMatch(r.out, /CHƯA done/)
+})
+
+test('pp advance nêu đích danh các tier bắt buộc của stage kế tiếp', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const r = run(['advance', 'demo', '--root', r0])
+  assert.equal(r.code, 0)
+  assert.match(r.out, /Tier bắt buộc\s*:\s*t1, t2/)
+  assert.match(r.out, /pp review-record demo 10-prd/)
 })
