@@ -1,6 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { checkTraceability, checkTcSchema, checkTypeRatio } from '../lib/checks/testplan.js'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { checkTraceability, checkTcSchema, checkTypeRatio, testplanChecks } from '../lib/checks/testplan.js'
+
+const SCHEMA = {
+  requiredTcAttrs: ['id', 'ac_ref', 'type', 'priority'],
+  requiredTcFields: ['precondition', 'steps', 'expected'],
+}
 
 const PRD = `
 <ac id="AC-1-1" story="US-1">WHEN a THE SYSTEM SHALL b</ac>
@@ -136,4 +144,56 @@ test('type không thuộc positive/negative thì fail rõ ràng, không bị b�
   const r = checkTcSchema(badType)
   assert.equal(r.ok, false)
   assert.match(r.messages.join(' '), /Negativee/)
+})
+
+// REVIEW FINDING 1: absence of 10-prd.md must be a gate failure, never a vacuous
+// pass — checkTraceability/checkTypeRatio have nothing to require against an empty
+// PRD, so a missing file must not silently substitute ''.
+test('thiếu 10-prd.md thì traceability và type-ratio đều fail và nêu tên file', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-testplan-'))
+  const checks = testplanChecks(d, SCHEMA)
+  const trace = checks.find((c) => c.name === 'traceability')
+  const ratio = checks.find((c) => c.name === 'type-ratio')
+
+  const rTrace = trace.run(PLAN, {})
+  assert.equal(rTrace.ok, false)
+  assert.match(rTrace.messages.join(' '), /10-prd\.md/)
+
+  const rRatio = ratio.run(PLAN, {})
+  assert.equal(rRatio.ok, false)
+  assert.match(rRatio.messages.join(' '), /10-prd\.md/)
+})
+
+test('không có PRD và plan rỗng thì không có check nào được xanh (không vacuous pass)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-testplan-'))
+  const checks = testplanChecks(d, SCHEMA)
+  const results = checks.map((c) => c.run('', {}))
+  assert.equal(
+    results.every((r) => r.ok === true),
+    false,
+  )
+})
+
+// REVIEW FINDING 2: traceability must also hold in reverse — a TC's ac_ref that
+// names no real AC (typo, stale reference) is a dangling reference, not silently
+// ignored. ac_ref is trimmed before comparing so incidental whitespace around an
+// otherwise-valid reference isn't misreported as dangling.
+test('ac_ref trỏ tới AC không tồn tại thì fail và nêu cả TC id lẫn ref sai', () => {
+  const withDangling = `${FULL_PLAN}
+<tc id="TC-005" ac_ref="AC-9-9-TYPO" type="positive" priority="low">
+precondition: -
+steps: -
+expected: -
+</tc>
+`
+  const r = checkTraceability(PRD, withDangling)
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join(' '), /TC-005/)
+  assert.match(r.messages.join(' '), /AC-9-9-TYPO/)
+})
+
+test('ac_ref có khoảng trắng thừa nhưng hợp lệ thì vẫn pass', () => {
+  const withSpaces = FULL_PLAN.replace('ac_ref="AC-1-1"', 'ac_ref=" AC-1-1 "')
+  const r = checkTraceability(PRD, withSpaces)
+  assert.equal(r.ok, true)
 })
