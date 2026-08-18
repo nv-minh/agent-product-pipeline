@@ -189,3 +189,64 @@ test('requiredTiers: gate rỗng vẫn bắt buộc t1', () => {
   assert.deepEqual(requiredTiers(config, '10-prd'), ['t1'])
   assert.equal(stageDone(d, config, readState(d), '10-prd').done, false)
 })
+
+// ─── FIX review cuối (finding 7): attempts là bộ đếm RETRY, không phải bộ ──
+// đếm số lần chạy. Quan sát trong review: T1 pass = attempt 1, T2 pass = 2,
+// một lần re-gate = 3, rồi lần đỏ THẬT đầu tiên bị blocked ngay với 0 lượt
+// sửa; một lần pass sạch in "attempt 3/3".
+
+test('gate XANH không tiêu ngân sách retry — attempts vẫn 0', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  config.stages['10-prd'].gate = ['t1', 't2'] // chưa done sau T1 → thấy rõ attempts
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  const st = readState(d).stages['10-prd']
+  assert.equal(st.attempts, 0)
+  assert.equal(st.tiers.t1.attempts, 0)
+})
+
+test('chỉ lần ĐỎ mới tăng attempts, và pass sạch in "attempt 1/3"', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  const pass = [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }]
+  const fail = [{ name: 'x', run: () => ({ name: 'x', ok: false, messages: ['đỏ'] }) }]
+
+  const r1 = runT1(d, config, readState(d), '10-prd', pass)
+  assert.match(readFileSync(join(d, r1.evidencePath), 'utf8'), /attempt 1\/3/)
+
+  runT1(d, config, readState(d), '10-prd', fail)
+  assert.equal(readState(d).stages['10-prd'].attempts, 1)
+  runT1(d, config, readState(d), '10-prd', fail)
+  assert.equal(readState(d).stages['10-prd'].attempts, 2)
+
+  // lần thứ 3 là lần thử thứ 3 (2 lần đỏ trước) và nó XANH
+  const r3 = runT1(d, config, readState(d), '10-prd', pass)
+  assert.match(readFileSync(join(d, r3.evidencePath), 'utf8'), /attempt 3\/3/)
+  // stage done → ngân sách trả về đầy, nhưng lịch sử tier còn nguyên
+  const st = readState(d).stages['10-prd']
+  assert.equal(st.status, 'done')
+  assert.equal(st.attempts, 0)
+  assert.equal(st.tiers.t1.attempts, 2)
+})
+
+// ─── FIX review cuối (finding 6b): stage bị tắt phải để lại dấu vết ──────
+test('stage enabled=false được ghi {status: skipped, reason: disabled}', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  config.stages['40-testplan'].enabled = false
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  const st = readState(d).stages['40-testplan']
+  assert.equal(st.status, 'skipped')
+  assert.equal(st.reason, 'disabled')
+})
+
+test('stage đã chạy rồi mới bị tắt thì KHÔNG bị ghi đè thành skipped', () => {
+  const d = feature('nội dung\n')
+  const config = readConfig(d)
+  const pass = [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }]
+  writeFileSync(join(d, '40-testplan.md'), 'plan\n')
+  runT1(d, config, readState(d), '40-testplan', pass)
+  config.stages['40-testplan'].enabled = false
+  runT1(d, config, readState(d), '10-prd', pass)
+  assert.equal(readState(d).stages['40-testplan'].status, 'done')
+})

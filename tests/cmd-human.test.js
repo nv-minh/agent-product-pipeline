@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { readState, writeState, isStale } from '../lib/state.js'
 import { readConfig } from '../lib/config.js'
+import { makeRoot, passT1Prd, verdictFile } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -276,4 +277,79 @@ test('report: không có root thì exit 2, không throw', () => {
   const r = run(['report'], { cwd: noRoot })
   assert.equal(r.code, 2)
   assert.match(r.out, /không tìm thấy gốc repo/)
+})
+
+// ─── FIX review cuối (finding 8): `overridden` phải được xoá khi gate xanh ──
+// `isStale` kiểm `overridden` TRƯỚC khi so hash, còn `runT1` giữ cờ đó qua
+// `{...prev}` — nên một lần dùng cửa thoát hiểm miễn nhiễm §7.5 cho stage đó
+// tới hết đời feature: input thượng nguồn đổi bao nhiêu lần cũng không regate.
+
+test('override rồi re-gate SẠCH thì cờ overridden bị xoá, stage lại chịu luật §7.5', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+
+  run(['override', 'demo', '10-prd', '--reason', 'gate nhận nhầm định dạng bảng', '--root', r0])
+  assert.equal(readState(dir).stages['10-prd'].overridden, true)
+
+  // gate lại cho sạch: T1 rồi T2
+  passT1Prd(r0)
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
+
+  const st = readState(dir).stages['10-prd']
+  assert.equal(st.status, 'done')
+  assert.equal(st.overridden, undefined, 'cờ overridden phải bị xoá sau gate xanh')
+  assert.equal(st.override_count, 1, 'số lần override là sổ ghi, phải giữ lại')
+  assert.equal(typeof st.inputs_hash, 'string')
+
+  // input thượng nguồn đổi → phải regate (trước bản vá: im lặng bỏ qua)
+  run(['approve', 'demo', '10-prd', '--root', r0])
+  writeFileSync(join(dir, '00-brief.md'), 'brief đã đổi hoàn toàn\n')
+  const r = run(['status', 'demo', '--root', r0])
+  assert.match(r.out, /10-prd/)
+  assert.match(r.out, /regate/)
+})
+
+// ─── FIX review cuối (finding 6b): stage bị tắt hiện trong pp report ────────
+test('report hiện stage bị tắt là skipped/disabled thay vì biến mất im lặng', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'M', '--root', r0]) // template M có 20-ux enabled=false
+  passT1Prd(r0)
+  const st = readState(join(r0, 'features/demo')).stages['20-ux']
+  assert.equal(st.status, 'skipped')
+  assert.equal(st.reason, 'disabled')
+  const r = run(['report', 'demo', '--root', r0])
+  assert.match(r.out, /20-ux\s+skipped/)
+})
+
+// ─── FIX review cuối (finding 7): review-record đi CHUNG một luật trần ─────
+test('nhánh PASS/FAIL của review-record dùng chung logic trần retry', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+
+  // hai lần T1 đỏ (artifact chưa có) rồi một lần T1 xanh
+  run(['gate', 'demo', '10-prd', '--root', r0])
+  run(['gate', 'demo', '10-prd', '--root', r0])
+  assert.equal(readState(dir).stages['10-prd'].attempts, 2)
+  passT1Prd(r0)
+  assert.equal(readState(dir).stages['10-prd'].attempts, 2, 'T1 xanh không tiêu thêm ngân sách')
+
+  // T2 đỏ = lần đỏ thứ 3 → blocked (trần áp cho CẢ hai tier)
+  const bad = verdictFile(r0, 'demo', '10-prd', [
+    { criterion: 'độ sâu', verdict: 'fail', severity: 'high', evidence: 'e', fix: 'f' },
+  ])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', bad, '--root', r0]).code, 1)
+  const blocked = readState(dir).stages['10-prd']
+  assert.equal(blocked.status, 'blocked')
+  assert.equal(blocked.attempts, 3)
+
+  // gỡ block rồi T2 xanh → done, ngân sách trả về 0 (không còn "attempt 5/3 … done")
+  run(['unblock', 'demo', '10-prd', '--reason', 'reviewer khắt quá', '--root', r0])
+  const good = verdictFile(r0, 'demo', '10-prd', [])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', good, '--root', r0]).code, 0)
+  const done = readState(dir).stages['10-prd']
+  assert.equal(done.status, 'done')
+  assert.equal(done.attempts, 0)
 })
