@@ -1,0 +1,7 @@
+{
+  "name": "pinnacle-product",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test tests/" }
+}

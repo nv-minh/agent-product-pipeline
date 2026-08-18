@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+const COMMANDS = {}   // các task sau đăng ký: COMMANDS.init = initCmd
+
+const USAGE = `Usage: pp <command> [options]
+
+Commands:
+  (chưa có lệnh nào — sẽ thêm ở các task sau)
+
+Options:
+  --help    In trợ giúp này
+`
+
+async function main(argv) {
+  const [cmd, ...rest] = argv
+  if (!cmd || cmd === '--help' || cmd === '-h') {
+    process.stdout.write(USAGE)
+    return cmd ? 0 : 2
+  }
+  const handler = COMMANDS[cmd]
+  if (!handler) {
+    process.stdout.write(`pp: không biết lệnh "${cmd}"\n\n${USAGE}`)
+    return 2
+  }
+  return await handler(rest)
+}
+
+main(process.argv.slice(2))
+  .then((code) => process.exit(code ?? 0))
+  .catch((err) => { process.stderr.write(`pp: ${err.message}\n`); process.exit(1) })
