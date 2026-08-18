@@ -122,3 +122,16 @@ test('FINDING 6b: human trường bị xóa ngay cả khi gate đỏ', () => {
   const s = readState(d)
   assert.equal(s.stages['10-prd'].human, undefined)
 })
+
+// REVIEW FINDING 1 (task-11 review): an unknown stage id must throw a clear,
+// stage-naming Error instead of letting `stage.outputs` (stage === undefined)
+// throw an unguarded TypeError. This is the precondition every caller of
+// runT1 — gateCmd today, later tasks tomorrow — relies on.
+test('REVIEW FINDING 1: stage id không tồn tại thì throw Error nêu tên stage', () => {
+  const d = feature('content\n')
+  const config = readConfig(d)
+  assert.throws(
+    () => runT1(d, config, readState(d), '99-nope', []),
+    /99-nope/,
+  )
+})

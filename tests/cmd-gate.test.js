@@ -60,3 +60,17 @@ test('flag đứng trước positional: pp gate --root DIR demo 40-testplan vẫ
   assert.equal(r.code, 1)
   assert.match(r.out, /AC-1-1/)
 })
+
+// FINDING 1 (task-11 review): unknown stage id must not leak an internal
+// TypeError from runT1's unguarded config.stages[stageId].outputs access.
+// gateCmd must catch it before calling runT1, name the bad id, list the real
+// ones, and exit 2 (bad argument) — not 1 (which means "the gate ran and
+// failed").
+test('gate với stage lạ báo rõ tên stage sai và liệt kê stage thật, exit 2', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const r = run(['gate', 'demo', '99-nope', '--root', r0])
+  assert.equal(r.code, 2)
+  assert.match(r.out, /99-nope/)
+  assert.match(r.out, /10-prd/)
+})
