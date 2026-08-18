@@ -3,14 +3,15 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { initCmd } from '../lib/commands/init.js'
 import { statusCmd } from '../lib/commands/status.js'
+import { parseArgs } from '../lib/args.js'
 
 const COMMANDS = { init: initCmd, status: statusCmd }   // các task sau đăng ký thêm vào đây
 
 const USAGE = `Usage: pp <command> [options]
 
 Commands:
-  init <feature> [--size S|M|L]   Tạo blackboard cho feature mới
-  status <feature>                In stage kế tiếp và lý do
+  init <feature> [--size S|M]   Tạo blackboard cho feature mới
+  status <feature>              In stage kế tiếp và lý do
 
 Options:
   --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
@@ -26,8 +27,11 @@ Options:
 // Vì vậy: "không có root" không phải là lỗi ở tầng này; từng lệnh cần root
 // tự kiểm tra `root` và báo lỗi rõ ràng nếu cần.
 function findRoot(args) {
-  const i = args.indexOf('--root')
-  if (i !== -1) return resolve(args[i + 1])
+  const { flags } = parseArgs(args)
+  // --root không có giá trị (token cuối, hoặc theo sau là flag khác) thì
+  // parseArgs trả flags.root = true — bỏ qua, để rơi xuống dò theo cwd
+  // thay vì resolve(true) (từng ném TypeError trước khi có parseArgs).
+  if (typeof flags.root === 'string') return resolve(flags.root)
   let dir = process.cwd()
   while (dir !== '/') {
     if (existsSync(join(dir, 'constitution.md'))) return dir

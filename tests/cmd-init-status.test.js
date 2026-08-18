@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, existsSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, existsSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -65,4 +65,43 @@ test('init cũng từ chối sạch khi không có root', () => {
   const r = run(['init', 'demo'], { cwd: noRoot })
   assert.equal(r.code, 2)
   assert.match(r.out, /không tìm thấy gốc repo/)
+})
+
+// --- Fix findings từ review Task 7 ---
+
+test('flag đứng trước feature: init --size S demo --root DIR tạo features/demo, không phải features/S', () => {
+  const root = tmpRoot()
+  const r = run(['init', '--size', 'S', 'demo', '--root', root])
+  assert.equal(r.code, 0)
+  assert.ok(existsSync(join(root, 'features/demo', 'pipeline.json')), 'phải tạo features/demo')
+  assert.ok(!existsSync(join(root, 'features/S')), 'không được tạo features/S')
+})
+
+test('flag đứng trước feature: status --root DIR demo vẫn nhận feature là demo, không phải root path', () => {
+  const root = tmpRoot()
+  run(['init', 'demo', '--size', 'S', '--root', root])
+  const r = run(['status', '--root', root, 'demo'])
+  assert.equal(r.code, 0)
+  assert.match(r.out, /^demo\n/)
+  assert.match(r.out, /10-prd/)
+})
+
+test('--size L chưa có template thì fallback về M, nhưng có cảnh báo — không im lặng', () => {
+  const root = tmpRoot()
+  const r = run(['init', 'demo', '--size', 'L', '--root', root])
+  assert.equal(r.code, 0)
+  assert.ok(existsSync(join(root, 'features/demo', 'pipeline.json')))
+  assert.match(r.out, /L/)
+  assert.match(r.out, /M/)
+  const pipeline = JSON.parse(readFileSync(join(root, 'features/demo/pipeline.json'), 'utf8'))
+  assert.equal(pipeline.size, 'M')
+})
+
+test('--root ở cuối không có giá trị thì không crash (TypeError) — thoát sạch với thông báo', () => {
+  const noRoot = mkdtempSync(join(tmpdir(), 'pp-noroot-'))
+  const r = run(['status', 'demo', '--root'], { cwd: noRoot })
+  assert.equal(r.code, 2)
+  assert.match(r.out, /không tìm thấy gốc repo/)
+  assert.doesNotMatch(r.out, /TypeError/)
+  assert.doesNotMatch(r.out, /node:internal/)
 })
