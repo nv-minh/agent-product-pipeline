@@ -1,0 +1,7 @@
+{
+  "feature": "broken",
+  "size": "S",
+  "stages": {
+    "50-security": { "enabled": true, "inputs": ["10-prd.md"], "gate": ["t1"] }
+  }
+}
