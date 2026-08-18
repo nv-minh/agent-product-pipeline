@@ -84,3 +84,46 @@ test('mọi stage xong thì complete', () => {
   assert.equal(r.stage, null)
   assert.equal(r.action, 'complete')
 })
+
+test('status failed với attempts >= MAX_ATTEMPTS thì blocked (enforce cap)', () => {
+  const { d, config } = setup()
+  const state = { stages: { '10-prd': { status: 'failed', attempts: 3 } } }
+  const r = nextStage(d, config, state)
+  assert.equal(r.stage, '10-prd')
+  assert.equal(r.action, 'blocked')
+  assert.match(r.reason, /3\/3/)
+})
+
+test('status failed với attempts < MAX_ATTEMPTS thì retry', () => {
+  const { d, config } = setup()
+  const state = { stages: { '10-prd': { status: 'failed', attempts: 2 } } }
+  const r = nextStage(d, config, state)
+  assert.equal(r.action, 'retry')
+  assert.match(r.reason, /2\/3/)
+})
+
+test('overridden stage không phải regate dù inputs đã thay đổi', () => {
+  const { d, config } = setup()
+  const state = {
+    stages: {
+      '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs), overridden: true },
+      '40-testplan': { status: 'done', inputs_hash: 'cu-roi', overridden: true },
+    },
+  }
+  const r = nextStage(d, config, state)
+  assert.equal(r.stage, null)
+  assert.equal(r.action, 'complete')
+})
+
+test('done stage không có inputs_hash và chưa overridden thì regate', () => {
+  const { d, config } = setup()
+  const state = {
+    stages: {
+      '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) },
+      '40-testplan': { status: 'done' },
+    },
+  }
+  const r = nextStage(d, config, state)
+  assert.equal(r.stage, '40-testplan')
+  assert.equal(r.action, 'regate')
+})
