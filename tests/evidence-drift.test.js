@@ -11,7 +11,7 @@
 // một cờ được tin — nên nó phải được suy lại mỗi lần đọc.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { appendFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readState } from '../lib/state.js'
 import { makeRoot, run, passT1Prd, verdictFile, PRD_REWRITTEN } from './helpers.js'
@@ -72,6 +72,48 @@ test('R4: viết lại artifact sau khi done cũng làm status quay về regate'
   const s = run(['status', 'demo', '--root', r0])
   assert.match(s.out, /regate/)
   assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 1)
+})
+
+// ─── F3: ARTIFACT VẮNG MẶT ⇒ KHÔNG TIER NÀO ĐÃ QUA ─────────────────────────
+// R1 ghi kèm mỗi kết quả tier một `artifact_hash`, nhưng "không có artifact"
+// được biểu diễn bằng chuỗi `'missing'` — và nó khớp với chính nó. Nên một
+// `gate: ["t2"]` viết tay tới `done` chỉ bằng phán quyết của LLM trong khi
+// artifact KHÔNG TỒN TẠI trên đĩa.
+test('F3: gate:["t2"] viết tay + artifact VẮNG MẶT không tới được done', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+
+  // Chỉ đòi t2 (đúng hình dạng R3 mô tả), và KHÔNG viết 10-prd.md.
+  const cfg = JSON.parse(readFileSync(join(dir, 'pipeline.json'), 'utf8'))
+  cfg.stages['10-prd'].gate = ['t2']
+  writeFileSync(join(dir, 'pipeline.json'), JSON.stringify(cfg, null, 2))
+
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  const rr = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
+  assert.doesNotMatch(rr.out, /✓ 10-prd: done/)
+  assert.match(rr.out, /⏳ 10-prd: CHƯA done/)
+  // ghi chú phải NÊU ĐÍCH DANH việc artifact vắng mặt, không nói "đã bị sửa"
+  assert.match(rr.out, /artifact 10-prd\.md KHÔNG CÓ trên đĩa/)
+
+  assert.notEqual(readState(dir).stages['10-prd'].status, 'done')
+  assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 1)
+})
+
+test('F3: xoá artifact của một stage đang done thì stage rơi khỏi done', () => {
+  const { r0, dir } = doneAndApproved()
+  rmSync(join(dir, '10-prd.md'))
+
+  const s = run(['status', 'demo', '--root', r0])
+  assert.equal(s.code, 0)
+  assert.match(s.out, /regate/)
+
+  const a = run(['approve', 'demo', '10-prd', '--root', r0])
+  assert.equal(a.code, 1, `approve phải từ chối, output:\n${a.out}`)
+  assert.match(a.out, /artifact 10-prd\.md KHÔNG CÓ trên đĩa/)
+
+  const rep = run(['report', 'demo', '--root', r0])
+  assert.match(rep.out, /done⚠/)
 })
 
 // ─── BẪY: stage `overridden` KHÔNG được rơi vào vòng re-gate vô hạn ─────────
