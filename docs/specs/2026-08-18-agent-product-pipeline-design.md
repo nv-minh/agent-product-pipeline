@@ -376,9 +376,15 @@ RESULT: FAIL (t1) — attempt 1/3
 
 Luật: quét evidence, gặp **bất kỳ `Exit status:` khác 0** → stage không thể `done`.
 
+Quét là quét **mọi log tier có thật trong `.evidence/`**, không phải chỉ những tier được liệt kê trong `gate` — một `gate: ["t2"]` viết tay không được biến `.evidence/<stage>.t1.log` đang đỏ thành thứ vô hình. Và câu hỏi này được **hỏi lại mỗi lần đọc** (`pp status`, `pp advance`, `pp approve`, `pp report`), không chỉ lúc ghi: `done` là kết luận rút từ evidence, không phải một cờ trong `STATE.md`.
+
 ### 7.5 Luật vô hiệu hoá ngược dòng
 
 `pp` lưu `inputs_hash` mỗi stage. Mỗi lần chạy băm lại toàn bộ input đã khai báo; lệch hash → **mọi stage hạ nguồn chuyển `stale`**, phải chạy gate lại (không viết lại từ đầu). **Human gate đã duyệt cũng bị thu hồi nếu input đổi.**
+
+Song song với nó là luật vô hiệu hoá **tại chỗ**: mỗi kết quả tier lưu thêm `artifact_hash` — hash của chính artifact (output cuối của stage) tại thời điểm tier đó chấm. **Một kết quả tier chỉ có giá trị với đúng bản artifact nó đã chấm**; artifact bị sửa sau đó → tier ấy hết hiệu lực, phải chạy lại (T2 không được thừa hưởng phán quyết viết cho bản trước). Kết quả tier **không có** `artifact_hash` (state do bản `pp` cũ ghi) cũng tính là chưa qua — nguồn gốc không rõ thì kiểm lại, y như `inputs_hash` vắng mặt.
+
+Ngoại lệ duy nhất, có chủ đích: stage `overridden` được hoàn tất bằng quyết định tay của con người, nên không bị đòi evidence / `inputs_hash` / `artifact_hash`. Bỏ ngoại lệ này là đưa pipeline vào vòng re-gate vô hạn.
 
 ### 7.6 Đường đi một feature
 
