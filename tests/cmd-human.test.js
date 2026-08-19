@@ -34,10 +34,15 @@ test('approve bị từ chối khi gate chưa pass', () => {
   assert.match(r.out, /gate/)
 })
 
-test('approve thành công khi gate pass', () => {
-  const r0 = root()
+// R4: `approve` không còn tin trường `gate` trong STATE.md, nên test này phải
+// đưa stage tới done bằng ĐƯỜNG THẬT (T1 rồi T2), không nhét state bằng tay.
+test('approve thành công khi stage thực sự done (evidence có trên đĩa)', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
   const dir = join(r0, 'features/demo')
-  const s = readState(dir); s.stages = { '10-prd': { status: 'done', gate: 'pass' } }; writeState(dir, s)
+  passT1Prd(r0)
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
   assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 0)
   assert.equal(readState(dir).stages['10-prd'].human, 'approved')
 })
@@ -184,13 +189,14 @@ test('unblock: không có root thì exit 2, không throw', () => {
 // --- merge lên state tươi (không phải bản chụp cũ) -------------------------
 
 test('approve/override/unblock merge lên state MỚI đọc từ đĩa, không đè mất stage khác', () => {
-  const r0 = root()
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
   const dir = join(r0, 'features/demo')
+  passT1Prd(r0)
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   const s = readState(dir)
-  s.stages = {
-    '10-prd': { status: 'done', gate: 'pass' },
-    '40-testplan': { status: 'blocked', attempts: 3, gate: 'fail' },
-  }
+  s.stages['40-testplan'] = { status: 'blocked', attempts: 3, gate: 'fail' }
   writeState(dir, s)
 
   assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 0)

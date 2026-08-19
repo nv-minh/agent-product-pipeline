@@ -1,7 +1,7 @@
 // tests/plan.test.js
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { nextStage } from '../lib/plan.js'
@@ -21,6 +21,21 @@ function setup() {
   return { d, config }
 }
 
+// R4: `done` không còn là một cờ được tin — mỗi lần đọc, `nextStage` hỏi lại
+// `stageDone`, và `stageDone` đọc `.evidence/` trên đĩa. Nên một stage "đã
+// xong" trong test phải mang đúng dấu vết mà một lần gate xanh để lại.
+// (Các stage trong config trên KHÔNG khai báo `outputs` — không có artifact
+// nào để chứng nhận nên cũng không có `artifact_hash`; luật hash artifact
+// được kiểm riêng ở tests/gate.test.js.)
+function doneStage(d, stageId, extra = {}) {
+  mkdirSync(join(d, '.evidence'), { recursive: true })
+  writeFileSync(
+    join(d, '.evidence', `${stageId}.t1.log`),
+    '$ pp-check x\nExit status: 0\nRESULT: PASS (t1) — attempt 1/3\n',
+  )
+  return { status: 'done', gate: 'pass', tiers: { t1: { result: 'pass' } }, ...extra }
+}
+
 test('state rỗng thì chạy stage bật đầu tiên', () => {
   const { d, config } = setup()
   const r = nextStage(d, config, { stages: {} })
@@ -30,14 +45,14 @@ test('state rỗng thì chạy stage bật đầu tiên', () => {
 
 test('bỏ qua stage đã tắt', () => {
   const { d, config } = setup()
-  const state = { stages: { '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) } } }
+  const state = { stages: { '10-prd': doneStage(d, '10-prd', { human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) }) } }
   const r = nextStage(d, config, state)
   assert.equal(r.stage, '40-testplan')
 })
 
 test('stage cần người duyệt mà gate đã xanh thì chờ người', () => {
   const { d, config } = setup()
-  const state = { stages: { '10-prd': { status: 'done', gate: 'pass', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) } } }
+  const state = { stages: { '10-prd': doneStage(d, '10-prd', { inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) }) } }
   const r = nextStage(d, config, state)
   assert.equal(r.stage, '10-prd')
   assert.equal(r.action, 'await-human')
@@ -63,8 +78,8 @@ test('input thượng nguồn đổi thì stage hạ nguồn phải regate', () 
   const { d, config } = setup()
   const state = {
     stages: {
-      '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) },
-      '40-testplan': { status: 'done', inputs_hash: 'cu-roi' },
+      '10-prd': doneStage(d, '10-prd', { human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) }),
+      '40-testplan': doneStage(d, '40-testplan', { inputs_hash: 'cu-roi' }),
     },
   }
   const r = nextStage(d, config, state)
@@ -76,8 +91,8 @@ test('mọi stage xong thì complete', () => {
   const { d, config } = setup()
   const state = {
     stages: {
-      '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) },
-      '40-testplan': { status: 'done', inputs_hash: hashInputs(d, config.stages['40-testplan'].inputs) },
+      '10-prd': doneStage(d, '10-prd', { human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) }),
+      '40-testplan': doneStage(d, '40-testplan', { inputs_hash: hashInputs(d, config.stages['40-testplan'].inputs) }),
     },
   }
   const r = nextStage(d, config, state)
@@ -119,7 +134,7 @@ test('done stage không có inputs_hash và chưa overridden thì regate', () =>
   const { d, config } = setup()
   const state = {
     stages: {
-      '10-prd': { status: 'done', human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) },
+      '10-prd': doneStage(d, '10-prd', { human: 'approved', inputs_hash: hashInputs(d, config.stages['10-prd'].inputs) }),
       '40-testplan': { status: 'done' },
     },
   }
