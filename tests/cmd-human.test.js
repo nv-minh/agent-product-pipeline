@@ -47,6 +47,42 @@ test('approve thành công khi stage thực sự done (evidence có trên đĩa)
   assert.equal(readState(dir).stages['10-prd'].human, 'approved')
 })
 
+// ─── F1: `approve` từ chối một stage KHÔNG ở trạng thái có thể hoàn tất ────
+// `stageDone` đoản mạch trên `overridden`, nên hình dạng state dưới đây —
+// gate đã chạy và ĐỎ nhưng cờ override cũ còn nằm lại — từng cho `pp approve`
+// in `✓ đã duyệt` và exit 0. `recordTierRun` nay tự xoá cờ khi gate đỏ; guard
+// này là lớp thứ hai, cho cả STATE.md bị sửa tay lẫn state do bản pp cũ ghi.
+test('F1: approve TỪ CHỐI stage failed dù STATE.md còn sót cờ overridden', () => {
+  const r0 = root()
+  const dir = join(r0, 'features/demo')
+  mkdirSync(join(dir, '.evidence'), { recursive: true })
+  writeFileSync(
+    join(dir, '.evidence/10-prd.t1.log'),
+    '$ pp-check ears 10-prd.md\n  thiếu THE SYSTEM SHALL\nExit status: 1\nRESULT: FAIL (t1) — attempt 1/3\n',
+  )
+  const s = readState(dir)
+  s.stages = { '10-prd': { status: 'failed', gate: 'fail', attempts: 1, overridden: true, override_count: 1 } }
+  writeState(dir, s)
+
+  const a = run(['approve', 'demo', '10-prd', '--root', r0])
+  assert.equal(a.code, 1, `approve phải từ chối, output:\n${a.out}`)
+  assert.match(a.out, /"failed"/)
+  assert.doesNotMatch(a.out, /đã duyệt/)
+})
+
+// Mặt kia của cùng một luật: một override THUẦN (chưa từng chạy gate) vẫn
+// phải duyệt được — nếu không, feature toàn stage overridden sẽ không bao giờ
+// tới đích. Vòng đời đầy đủ của ca này nằm ở tests/evidence-drift.test.js
+// ("BẪY R4"); ở đây chỉ khẳng định đúng nhánh `approve`.
+test('F1: approve VẪN duyệt được stage override thuần (không có lần chạy gate nào)', () => {
+  const r0 = root()
+  assert.equal(run(['override', 'demo', '10-prd', '--reason', 'chốt tay với PO', '--root', r0]).code, 0)
+  const a = run(['approve', 'demo', '10-prd', '--root', r0])
+  assert.equal(a.code, 0, `approve phải thành công, output:\n${a.out}`)
+  assert.match(a.out, /đã duyệt/)
+  assert.equal(readState(join(r0, 'features/demo')).stages['10-prd'].human, 'approved')
+})
+
 test('approve: stage lạ báo rõ tên stage và liệt kê stage thật, exit 2', () => {
   const r0 = root()
   const r = run(['approve', 'demo', '99-nope', '--root', r0])
@@ -331,6 +367,41 @@ test('override rồi re-gate SẠCH thì cờ overridden bị xoá, stage lại 
   const r = run(['status', 'demo', '--root', r0])
   assert.match(r.out, /10-prd/)
   assert.match(r.out, /regate/)
+})
+
+// ─── F2: RE-GATE ĐỎ trên một stage đã override ─────────────────────────────
+// Test override+gate duy nhất trước đây RE-GATE SẠCH; đường ĐỎ không có gì
+// phủ. Hệ quả đo được: đảo phép tước `overridden` trong `recordTierRun` (đánh
+// giá BẢN GHI KÈM miễn trừ) vẫn để nguyên suite xanh, trong khi một lần chạy
+// `RESULT: FAIL (t1)` được ghi thành `status: done, gate: pass` và in
+// `✓ 10-prd: done`. Đây là dòng nguy hiểm nhất của đợt vá trước.
+test('F2: override rồi re-gate ĐỎ → failed/gate fail, in CHƯA done, cờ overridden bị xoá', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+
+  run(['override', 'demo', '10-prd', '--reason', 'gate nhận nhầm định dạng bảng', '--root', r0])
+  assert.equal(readState(dir).stages['10-prd'].overridden, true)
+
+  // Gate ĐỎ THẬT (không nhét state bằng tay): 10-prd.md chưa tồn tại nên T1
+  // ghi `Exit status: 1` xuống .evidence/.
+  const g = run(['gate', 'demo', '10-prd', '--root', r0])
+  assert.equal(g.code, 1, `gate phải đỏ, output:\n${g.out}`)
+  assert.match(g.out, /RESULT: FAIL \(t1\)/)
+  assert.match(g.out, /⏳ 10-prd: CHƯA done/)
+  assert.doesNotMatch(g.out, /✓ 10-prd: done/)
+
+  const st = readState(dir).stages['10-prd']
+  assert.equal(st.status, 'failed')
+  assert.equal(st.gate, 'fail')
+  assert.equal(st.tiers.t1.result, 'fail')
+  assert.equal(st.overridden, undefined, 'một exit code đỏ là dữ kiện mới — override không sống sót')
+  assert.equal(st.override_count, 1, 'số lần override là sổ ghi, phải giữ lại')
+
+  // và chữ ký của con người không đặt lên nó được nữa
+  const a = run(['approve', 'demo', '10-prd', '--root', r0])
+  assert.equal(a.code, 1, `approve phải từ chối, output:\n${a.out}`)
+  assert.doesNotMatch(a.out, /đã duyệt/)
 })
 
 // ─── FIX review cuối (finding 6b): stage bị tắt hiện trong pp report ────────
