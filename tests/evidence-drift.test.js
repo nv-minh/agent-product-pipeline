@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readState } from '../lib/state.js'
-import { makeRoot, run, passT1Prd, verdictFile, PRD_REWRITTEN } from './helpers.js'
+import { makeRoot, run, passT1Prd, verdictFile, PRD_REWRITTEN, TESTPLAN } from './helpers.js'
 
 // Đưa 10-prd tới `done` + `approved` bằng ĐƯỜNG THẬT (T1 → T2 → approve).
 function doneAndApproved() {
@@ -72,6 +72,79 @@ test('R4: viết lại artifact sau khi done cũng làm status quay về regate'
   const s = run(['status', 'demo', '--root', r0])
   assert.match(s.out, /regate/)
   assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 1)
+})
+
+// ─── F4: `report` và `status` phải nói CÙNG một chuyện về cùng một stage ───
+// Phép kiểm drift của `report` chỉ gọi `stageDone`, không gọi `isStale` — nên
+// một stage bị stale vì input thượng nguồn đổi in ra `done` sạch bong ở
+// `report` trong khi `pp status` nói `regate`. Hai lệnh nói ngược nhau thì
+// `report` mất giá trị làm mặt bằng kiểm toán.
+//
+// Dựng một feature có ĐỦ ba hình dạng ô trong cùng một bảng: `done⚠`
+// (10-prd, stale), `skipped` (20-ux, disabled) và `in_progress` (40-testplan,
+// mới xong T1) — cũng chính là hai hàng làm gãy `padEnd(10)`.
+function staleAndInProgress() {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'M', '--root', r0]) // template M có 20-ux enabled=false
+  const dir = join(r0, 'features/demo')
+
+  passT1Prd(r0)
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
+  assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 0)
+
+  writeFileSync(join(dir, '40-testplan.md'), TESTPLAN)
+  assert.equal(run(['gate', 'demo', '40-testplan', '--root', r0]).code, 0)
+
+  // Input thượng nguồn của 10-prd đổi SAU KHI nó đã done: evidence vẫn sạch,
+  // artifact vẫn nguyên — chỉ `isStale` mới thấy.
+  writeFileSync(join(dir, '00-brief.md'), 'brief đã đổi hoàn toàn\n')
+  return { r0, dir }
+}
+
+test('F4: stage stale thượng nguồn — report và status nói cùng một chuyện', () => {
+  const { r0 } = staleAndInProgress()
+
+  const s = run(['status', 'demo', '--root', r0])
+  assert.equal(s.code, 0)
+  assert.match(s.out, /stage kế tiếp : 10-prd/)
+  assert.match(s.out, /regate/)
+
+  const rep = run(['report', 'demo', '--root', r0])
+  assert.equal(rep.code, 0)
+  assert.match(rep.out, /done⚠/)
+  assert.match(rep.out, /INPUT THƯỢNG NGUỒN đã đổi/)
+  // và phải PHÂN BIỆT được với ca "evidence không còn chứng minh"
+  assert.doesNotMatch(rep.out, /evidence hiện tại KHÔNG chứng minh/)
+})
+
+// Vị trí HIỂN THỊ (không phải chỉ số JS) nơi từng ô của một dòng bảng bắt đầu.
+// `⚠` (U+26A0) là một đơn vị mã JS nhưng chiếm hai cột trên terminal — đúng
+// thứ `padEnd` không biết.
+function cellStarts(line) {
+  const starts = []
+  let col = 0
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== ' ' && (i === 0 || line[i - 1] === ' ')) starts.push(col)
+    col += line[i] === '⚠' ? 2 : 1
+  }
+  return starts
+}
+
+test('F4: cột bảng report không gãy vì in_progress hay done⚠', () => {
+  const { r0 } = staleAndInProgress()
+  const lines = run(['report', 'demo', '--root', r0]).out.split('\n')
+
+  const head = lines.find((l) => /^ {2}stage\s/.test(l))
+  assert.ok(head, 'không tìm thấy dòng tiêu đề bảng')
+  const rows = lines.filter((l) => /^ {2}(10-prd|20-ux|40-testplan)\s/.test(l))
+  assert.equal(rows.length, 3, `mong 3 hàng, nhận:\n${rows.join('\n')}`)
+  assert.ok(rows.some((l) => l.includes('done⚠')), 'thiếu hàng done⚠')
+  assert.ok(rows.some((l) => l.includes('in_progress')), 'thiếu hàng in_progress')
+
+  for (const row of rows) {
+    assert.deepEqual(cellStarts(row), cellStarts(head), `cột lệch:\n${head}\n${row}`)
+  }
 })
 
 // ─── F3: ARTIFACT VẮNG MẶT ⇒ KHÔNG TIER NÀO ĐÃ QUA ─────────────────────────
