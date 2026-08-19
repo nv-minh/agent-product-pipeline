@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { checkEars, checkIds, checkRiskChecklist, checkQuestionsAnswered } from '../lib/checks/prd.js'
+import { checkEars, checkIds, checkRiskChecklist, checkQuestionsAnswered, parseAcIds } from '../lib/checks/prd.js'
 
 const OK_PRD = `## User stories
 <us id="US-1">Là người dùng, tôi muốn gửi phản hồi</us>
@@ -164,4 +164,67 @@ test('8 bản sao Q1 giống hệt thì fail vì đếm theo số câu hỏi ph�
   const r = checkQuestionsAnswered(d)
   assert.equal(r.ok, false)
   assert.match(r.messages.join('\n'), /Q1/)
+})
+
+// BUG FIX: the old <ac>/<us> regexes only matched the exact literal shapes
+// `<ac id="X">`, `<ac id="X" story="Y">` and `<us id="X">` (id first). Any other
+// attribute shape — a typo'd attribute name, id missing, id not first — made the
+// whole block invisible to every check. Now blocks are parsed generically by tag
+// name and their attributes validated explicitly instead of silently skipped.
+
+test('AC với thuộc tính story-x (lỗi gõ) thì checkIds fail và nêu cả id lẫn tên thuộc tính sai', () => {
+  const bad = OK_PRD.replace('<ac id="AC-1-1" story="US-1">', '<ac id="AC-1-1" story-x="US-1">')
+  const r = checkIds(bad, 'p.md')
+  assert.equal(r.ok, false)
+  const joined = r.messages.join('\n')
+  assert.match(joined, /AC-1-1/)
+  assert.match(joined, /story-x/)
+})
+
+test('AC với thuộc tính story-x (lỗi gõ) thì body vẫn được checkEars kiểm tra, không bị bỏ qua', () => {
+  const bad = OK_PRD.replace('<ac id="AC-1-1" story="US-1">', '<ac id="AC-1-1" story-x="US-1">').replace(
+    'THE SYSTEM SHALL lưu phản hồi và trả 201',
+    'thì lưu phản hồi',
+  )
+  const r = checkEars(bad, 'p.md')
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /AC-1-1/)
+})
+
+test('AC không có id thì checkIds fail với thông báo xác định được block', () => {
+  const bad = OK_PRD.replace('<ac id="AC-1-1" story="US-1">', '<ac story="US-1">')
+  const r = checkIds(bad, 'p.md')
+  assert.equal(r.ok, false)
+  const joined = r.messages.join('\n')
+  assert.match(joined, /thiếu thuộc tính id/)
+  assert.match(joined, /AC #1|WHEN người dùng submit/)
+})
+
+test('US thiếu id (chỉ có name) thì fail thay vì âm thầm cho ra 0 story', () => {
+  const bad = OK_PRD.replace('<us id="US-1">', '<us name="US-1">')
+  const r = checkIds(bad, 'p.md')
+  assert.equal(r.ok, false)
+  const joined = r.messages.join('\n')
+  assert.match(joined, /thiếu thuộc tính id|không tìm thấy user story/)
+  assert.match(joined, /name/)
+})
+
+test('US có thuộc tính lạ "note" thì fail và nêu tên thuộc tính', () => {
+  const bad = OK_PRD.replace('<us id="US-1">', '<us id="US-1" note="x">')
+  const r = checkIds(bad, 'p.md')
+  assert.equal(r.ok, false)
+  const joined = r.messages.join('\n')
+  assert.match(joined, /US-1/)
+  assert.match(joined, /note/)
+})
+
+test('tài liệu hợp lệ <ac id/story> và <us id> vẫn pass như trước', () => {
+  assert.equal(checkEars(OK_PRD, 'p.md').ok, true)
+  assert.equal(checkIds(OK_PRD, 'p.md').ok, true)
+})
+
+test('parseAcIds vẫn lấy được id của block có thuộc tính lỗi kèm theo', () => {
+  const bad = OK_PRD.replace('<ac id="AC-1-1" story="US-1">', '<ac id="AC-1-1" story-x="US-1">')
+  const ids = parseAcIds(bad)
+  assert.deepEqual(ids, ['AC-1-1', 'AC-1-2'])
 })
