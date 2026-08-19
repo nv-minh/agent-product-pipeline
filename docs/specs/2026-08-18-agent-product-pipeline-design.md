@@ -329,7 +329,9 @@ Layout A: root `~/Documents/pinnacle` **không phải git repo**; một feature 
     ├── rubric/
     ├── schema/
     └── features/
-        ├── feedback-collector/
+        ├── feedback-collector/         ← blackboard của MỘT feature:
+        │     pipeline.json · STATE.md · artifacts (00-brief.md …)
+        │     .evidence/ · audit.jsonl · .review/ · .usage/
         └── _archive/
 ```
 
@@ -417,7 +419,7 @@ NGƯỜI trả lời trong 10-questions.md
 
 ### 7.7 Bảng phân quyền ghi (thi hành bằng PreToolUse hook)
 
-| Đối tượng | `STATE.md` `.evidence/` | artifact stage hiện tại | artifact stage khác | code repo |
+| Đối tượng | `STATE.md` `.evidence/` `audit.jsonl` `.review/` `.usage/` | artifact stage hiện tại | artifact stage khác | code repo |
 |---|---|---|---|---|
 | `pp` (script) | **ghi** | — | — | — |
 | Stage subagent | ⛔ | ghi | ⛔ | ⛔ |
@@ -425,7 +427,7 @@ NGƯỜI trả lời trong 10-questions.md
 | Herdr BE/FE Worker | ⛔ | ⛔ | ⛔ | ghi (repo của mình) |
 | Người dùng | ghi (`pp approve`) | ghi | ghi | ghi |
 
-Dòng đầu giữ cả hệ thống đứng vững: **không thực thể LLM nào có quyền ghi trạng thái hoàn thành.**
+Dòng đầu giữ cả hệ thống đứng vững: **không thực thể LLM nào có quyền ghi trạng thái hoàn thành.** Ba path bằng chứng mới (`audit.jsonl`, `.review/`, `.usage/`) nằm cùng cột với `STATE.md`/`.evidence/` vì cùng lý do: agent sửa tay evidence là làm giả bằng chứng. Ngoại lệ duy nhất: file `.review-<stage>.json` ở **gốc** feature là **inbox** conductor nộp verdict thô cho `pp` — agent được ghi (đó là bàn giao dữ liệu, `pp` mới là bên ghi state); `.review/` (dir) là bản lưu vĩnh viễn do `pp` tạo ra từ inbox đó.
 
 ---
 
@@ -515,7 +517,21 @@ Tuyệt đối **không** báo thay đổi qua chat rồi để worker tự đi�
 | `lessons/` phình | 1 file >20 dòng | gộp lại |
 | **Nghi thức quá nặng** | phần phi-dev 1 feature **>30 phút** | **cắt stage** |
 
-`pp report` in cho mỗi feature: số vòng từng stage, số override, token, thời gian.
+`pp report` in cho mỗi feature: số vòng từng stage, số override, token, thời gian. *(Đã làm: token là số thô tổng hợp từ `.usage/entries.jsonl` do `pp usage-sync` sinh; "thời gian" là KHOẢNG first→last ts trong `audit.jsonl`, không phải công sức — xem §9.5.)*
+
+### 9.5 Kiểm toán, token, hội thoại (storage-only)
+
+Phase này chỉ **lưu dữ liệu có cấu trúc** để làm evidence cải tiến (chi phí, chất lượng, debug, tuân thủ) — không UI/dashboard; phân tích sau bằng script. Ba mảnh, tất cả chỉ `pp` được ghi (guard chặn, §7.7):
+
+**(a) Sổ kiểm toán `features/<f>/audit.jsonl`** — append-only, một dòng JSON mỗi lần một lệnh pp chạm feature: `{ts: ISO đầy đủ, v: 1, actor: "human"|"pp", event, feature, stage?, ok?, reason?, details?}`. `actor` là **phân loại theo lớp lệnh** (init/approve/override/unblock = human; còn lại = pp) — pp không thể xác minh danh tính thật. Ghi là best-effort: lỗi ghi audit không đổi exit code của lệnh (exit code là dữ kiện về gate). `lessons/` giữ nguyên vai trò sổ tay của người; audit chỉ mirror.
+
+**(b) Archive hội thoại reviewer `features/<f>/.review/<stage>.<seq>.json`** — mỗi verdict được lưu vĩnh viễn: nguyên văn verdict + `verdict_sha` + `prompt_sha` (hash của prompt dựng lại bằng cùng `buildReviewPrompt` — hash lệch = rubric/artifact đã đổi giữa lúc hỏi và lúc chấm). `seq` đơn điệu **tách khỏi** `attempts` (attempts reset khi done; dùng lại sẽ ghi đè lịch sử sau chu kỳ re-gate).
+
+**(c) Token thật `features/<f>/.usage/entries.jsonl`** — `pp usage-sync <feature> [--since <iso>] [--transcripts DIR]` khai thác transcript Claude Code (`~/.claude/projects/<munged-cwd>/*.jsonl`; munge = mọi ký tự không alphanumeric thành `-`). Luật:
+- **Dedup theo `(session, message.id)` là bắt buộc** — một API response sinh nhiều dòng JSONL (mỗi content block một dòng) với usage giống hệt nhau; không dedup thì token thổi phồng ~65% (đo thực tế). LLM **không được tự khai usage** trong verdict — evidence không nhận lời khai.
+- **Attribution là heuristic**: cửa sổ thời gian dựng từ event `dispatch`/`review-prompt` trong audit.jsonl ([ts, sự kiện kế tiếp), cap 2h) → gán stage; ngoài cửa sổ thì fallback dòng thô có nhắc `features/<f>` → `attrib: "mention"`, không rõ stage. Mỗi entry lưu `attrib`/`stage`/`ts` thô để script sau tái gán mà không khai thác lại.
+- **Idempotent**: id đã có trong file thì bỏ — chạy hai lần thêm 0 mục.
+- Chỉ lưu **số + metadata** (model, session, sidechain), không copy nội dung hội thoại (riêng tư + kích thước; transcript gốc vẫn ở ~/.claude). Thiếu thư mục transcript = thiếu dữ liệu, exit 0.
 
 ---
 

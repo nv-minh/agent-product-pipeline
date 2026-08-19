@@ -16,8 +16,11 @@ lý đúng theo loại output đó — `pp advance` in đúng một trong bốn 
    2b. T1 xanh mà output còn in `⏳ … CHƯA done — còn thiếu tier: t2`: chạy `pp review-prompt
        <feature> <stage>`, mở một subagent MỚI dùng agent `pp-reviewer` (agents/pp-reviewer.md)
        với nguyên prompt đó làm input — subagent chỉ đọc, không ghi file nào. Lưu đúng nguyên văn
-       JSON subagent trả về vào `features/<feature>/.review-<stage>.json`, rồi chạy `pp
-       review-record <feature> <stage> --verdict features/<feature>/.review-<stage>.json`. Verdict
+       JSON subagent trả về vào `features/<feature>/.review-<stage>.json` (file này ở GỐC feature là
+       inbox — agent được ghi), rồi chạy `pp
+       review-record <feature> <stage> --verdict features/<feature>/.review-<stage>.json` (pp tự lưu
+       mỗi verdict vào `.review/<stage>.<seq>.json` trong dir `.review/` — không ghi đè lịch sử).
+       Verdict
        có finding `severity: high` (exit 1) → đưa evidence T2 cho subagent viết-artifact sửa, quay
        lại bước 2 (gate T1 lại). Tính vào cùng giới hạn tối đa 3 lần của bước 3.
        `pp review-prompt`/`review-record` **tự từ chối (exit 1)** nếu T1 chưa xanh — thứ tự tier
