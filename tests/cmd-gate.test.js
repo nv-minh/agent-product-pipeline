@@ -172,5 +172,6 @@ test('R1: viết lại artifact sau khi stage done thì pp gate một mình khô
   assert.equal(g.code, 0, g.out) // T1 vẫn xanh trên bản viết lại — đó là điểm mấu chốt
   assert.doesNotMatch(g.out, /✓ 10-prd: done/)
   assert.match(g.out, /CHƯA done — còn thiếu tier: t2/)
+  assert.match(g.out, /10-prd\.md đã bị SỬA SAU KHI t2 chạy/)
   assert.notEqual(readState(dir).stages['10-prd'].status, 'done')
 })
