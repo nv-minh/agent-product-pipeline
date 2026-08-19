@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, cpSync, readFileSync, appendFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, cpSync, readFileSync, appendFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readConfig } from '../lib/config.js'
@@ -249,4 +249,57 @@ test('stage đã chạy rồi mới bị tắt thì KHÔNG bị ghi đè thành 
   config.stages['40-testplan'].enabled = false
   runT1(d, config, readState(d), '10-prd', pass)
   assert.equal(readState(d).stages['40-testplan'].status, 'done')
+})
+
+// ─── R1 (review cuối): KẾT QUẢ TIER CHỈ CÓ GIÁ TRỊ VỚI ĐÚNG ARTIFACT NÓ ĐÃ ──
+// CHẤM. `isStale` chỉ băm input thượng nguồn, không bao giờ băm output của
+// chính stage — nên một stage đã done hợp lệ vẫn giữ done sau khi artifact bị
+// viết lại thành nội dung khác hẳn.
+
+test('R1: viết lại artifact sau khi tier chạy thì tier đó KHÔNG còn tính là qua', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d)
+  const pass = [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }]
+  runT1(d, config, readState(d), '10-prd', pass)
+  assert.equal(readState(d).stages['10-prd'].status, 'done')
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, true)
+
+  writeFileSync(join(d, '10-prd.md'), 'bỏ hoàn toàn kiểm tra phân quyền\n')
+  const v = stageDone(d, config, readState(d), '10-prd')
+  assert.equal(v.done, false)
+  assert.deepEqual(v.outstanding, ['t1'])
+  assert.match(v.notes.join('\n'), /10-prd\.md đã bị SỬA SAU KHI t1 chạy/)
+})
+
+test('R1: tier không ghi artifact_hash (state bản pp cũ) tính là CHƯA qua', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d)
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+
+  const s = readState(d)
+  delete s.stages['10-prd'].tiers.t1.artifact_hash
+  writeState(d, s)
+
+  const v = stageDone(d, config, readState(d), '10-prd')
+  assert.equal(v.done, false)
+  assert.deepEqual(v.outstanding, ['t1'])
+  assert.match(v.notes.join('\n'), /không có artifact_hash/)
+})
+
+test('R1: xoá hẳn artifact cũng làm tier mất hiệu lực', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d)
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  rmSync(join(d, '10-prd.md'))
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, false)
+})
+
+// Cửa thoát hiểm phải giữ nguyên miễn trừ của nó (nếu không: re-gate vô hạn).
+test('R1: stage overridden vẫn done dù không có artifact_hash, tier hay evidence', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d)
+  const s = readState(d)
+  s.stages = { '10-prd': { status: 'done', gate: 'pass', overridden: true, override_count: 1 } }
+  writeState(d, s)
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, true)
 })

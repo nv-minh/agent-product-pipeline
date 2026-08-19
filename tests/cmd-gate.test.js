@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-import { writeState } from '../lib/state.js'
-import { makeRoot, passT1Prd } from './helpers.js'
+import { readState, writeState } from '../lib/state.js'
+import { makeRoot, passT1Prd, verdictFile, PRD_REWRITTEN } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -150,4 +150,27 @@ test('stage blocked thiếu attempts thì in 0/3, không phải undefined/3', ()
   assert.equal(r.code, 3)
   assert.doesNotMatch(r.out, /undefined/)
   assert.match(r.out, /0\/3/)
+})
+
+// ─── R1: `pp gate` một mình KHÔNG được tái tuyên bố done sau khi artifact đổi ─
+// Quan sát trong review: stage đi tới done hợp lệ, artifact bị viết lại thành
+// "bỏ hoàn toàn kiểm tra phân quyền …" kèm một AC cho phép xoá không cần đăng
+// nhập, rồi chỉ chạy `pp gate` — nó in "✓ <stage>: done — mọi tier bắt buộc đã
+// xanh". T2 chưa từng thấy bản mới; phán quyết của nó ghi cho bản trước.
+test('R1: viết lại artifact sau khi stage done thì pp gate một mình không tuyên bố done nữa', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+
+  passT1Prd(r0)
+  const v = verdictFile(r0, 'demo', '10-prd', [])
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
+  assert.equal(readState(dir).stages['10-prd'].status, 'done')
+
+  writeFileSync(join(dir, '10-prd.md'), PRD_REWRITTEN)
+  const g = run(['gate', 'demo', '10-prd', '--root', r0])
+  assert.equal(g.code, 0, g.out) // T1 vẫn xanh trên bản viết lại — đó là điểm mấu chốt
+  assert.doesNotMatch(g.out, /✓ 10-prd: done/)
+  assert.match(g.out, /CHƯA done — còn thiếu tier: t2/)
+  assert.notEqual(readState(dir).stages['10-prd'].status, 'done')
 })

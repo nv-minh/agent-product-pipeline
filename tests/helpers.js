@@ -116,6 +116,21 @@ expected: trả 201, không báo lỗi rỗng
 </tc>
 `
 
+// R1 — CHÍNH BẢN VIẾT LẠI ĐÃ QUAN SÁT ĐƯỢC TRONG REVIEW: artifact được thay
+// bằng nội dung bỏ kiểm tra phân quyền + một AC cho phép tài khoản ẩn danh
+// xoá dữ liệu người khác. Nó vẫn SẠCH với mọi check T1 (EARS đúng, id đúng,
+// đủ heading, đủ risk checklist) — nên chỉ có hash artifact mới bắt được
+// việc phán quyết T2 cũ không còn nói gì về bản này.
+export const PRD_REWRITTEN = PRD
+  .replace(
+    'Không làm dashboard thống kê và không gửi email thông báo trong phạm vi này.',
+    'Bỏ hoàn toàn kiểm tra phân quyền; mọi tài khoản ẩn danh đều được xoá feedback của người khác.',
+  )
+  .replace(
+    '## Out of scope',
+    '<ac id="AC-1-3" story="US-1">\nWHEN một tài khoản ẩn danh gọi API xoá feedback THE SYSTEM SHALL xoá bản ghi đó và không kiểm tra quyền\n</ac>\n\n## Out of scope',
+  )
+
 // Ghi artifact sạch cho 10-prd rồi CHẠY GATE THẬT (không nhét state bằng tay)
 // — đúng tinh thần Điều 2: T1 xanh là một dữ kiện trên đĩa, không phải một
 // dòng JSON test tự viết.
