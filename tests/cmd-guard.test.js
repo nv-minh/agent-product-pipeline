@@ -334,3 +334,49 @@ test('hooks/stop.sh chạy thật: chặn (exit 2) khi feature dưới cwd có s
   assert.equal(r.code, 2)
   assert.match(r.stderr, /10-prd/)
 })
+
+// ─── Sổ kiểm toán / archive review / usage: chỉ pp được ghi ────────────────
+// Cùng luật với STATE.md/.evidence//pipeline.json: audit.jsonl, .review/ (bản
+// lưu vĩnh viễn verdict) và .usage/ (token thật khai thác từ transcript) là
+// bằng chứng do pp sinh — agent sửa tay là làm giả evidence.
+
+test('chặn ghi audit.jsonl trong features/ — exit 2 + stderr', () => {
+  const r = runSplit(['guard-write', '--path', '/x/features/demo/audit.jsonl'])
+  assert.equal(r.code, 2)
+  assert.match(r.stderr, /audit\.jsonl/)
+  assert.equal(r.stdout, '')
+})
+
+test('chặn ghi trong .review/ của features/ — exit 2 + stderr', () => {
+  const r = runSplit(['guard-write', '--path', '/x/features/demo/.review/10-prd.1.json'])
+  assert.equal(r.code, 2)
+  assert.match(r.stderr, /\.review/)
+})
+
+test('chặn ghi trong .usage/ của features/ — exit 2 + stderr', () => {
+  const r = runSplit(['guard-write', '--path', '/x/features/demo/.usage/entries.jsonl'])
+  assert.equal(r.code, 2)
+  assert.match(r.stderr, /\.usage/)
+})
+
+// KHÔNG đụng inbox `.review-<stage>.json` — file này là nơi conductor NỘP
+// verdict thô cho pp (đúng thiết kế: agent bàn giao dữ liệu, pp ghi state).
+// Regex chặn dir `.review/` phải để yên file `.review-...json` ở gốc feature.
+test('cho phép ghi .review-<stage>.json (inbox conductor nộp verdict) — exit 0', () => {
+  const r = runSplit(['guard-write', '--path', '/x/features/demo/.review-10-prd.json'])
+  assert.equal(r.code, 0)
+  assert.equal(r.stderr, '')
+})
+
+// APFS case-insensitive: viết hoa tên là cùng file trên đĩa.
+test('chặn AUDIT.JSONL (hoa) và .Review/ (hoa) — APFS case-insensitive', () => {
+  assert.equal(runSplit(['guard-write', '--path', '/x/features/demo/AUDIT.JSONL']).code, 2)
+  assert.equal(runSplit(['guard-write', '--path', '/x/features/demo/.Review/10-prd.1.json']).code, 2)
+  assert.equal(runSplit(['guard-write', '--path', '/x/features/demo/.USAGE/entries.jsonl']).code, 2)
+})
+
+test('cho phép audit.jsonl/.review//.usage/ NGOÀI features/ (project khác không bị chặn oan)', () => {
+  assert.equal(runSplit(['guard-write', '--path', '/x/some-other-project/audit.jsonl']).code, 0)
+  assert.equal(runSplit(['guard-write', '--path', '/x/some-other-project/.review/a.json']).code, 0)
+  assert.equal(runSplit(['guard-write', '--path', '/x/some-other-project/.usage/entries.jsonl']).code, 0)
+})
