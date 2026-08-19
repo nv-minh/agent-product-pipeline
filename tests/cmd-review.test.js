@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, cpSync, rmSync, appendFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, cpSync, rmSync, appendFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { readState, writeState } from '../lib/state.js'
-import { passT1Prd, PRD } from './helpers.js'
+import { passT1Prd, PRD, QUESTIONS } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -234,4 +234,37 @@ test('bẻ log evidence T1 thì lần đánh giá kế tiếp coi stage là chư
   const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(r.code, 1)
   assert.notEqual(readState(f).stages['10-prd'].status, 'done')
+})
+
+// ─── R3: một `gate: ["t2"]` viết tay không được biến phán quyết LLM thành ───
+// tấm vé duy nhất tới `done`. §7.4: quét EVIDENCE, gặp bất kỳ `Exit status:`
+// khác 0 → không thể done, kể cả của tier không nằm trong `gate`.
+test('R3: gate ["t2"] + log t1 đỏ trên đĩa thì review-record KHÔNG thể đưa stage tới done', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const f = join(r0, 'features/demo')
+
+  // T1 chạy thật và đỏ (thiếu 10-questions.md) — log ở lại trên đĩa
+  writeFileSync(join(f, '10-prd.md'), PRD)
+  assert.equal(run(['gate', 'demo', '10-prd', '--root', r0]).code, 1)
+  assert.match(readFileSync(join(f, '.evidence/10-prd.t1.log'), 'utf8'), /Exit status: 1/)
+
+  // pipeline.json bị viết tay: gate chỉ còn t2
+  const pj = join(f, 'pipeline.json')
+  const cfg = JSON.parse(readFileSync(pj, 'utf8'))
+  cfg.stages['10-prd'].gate = ['t2']
+  writeFileSync(pj, JSON.stringify(cfg, null, 2))
+
+  const v = join(f, 'verdict.json')
+  writeFileSync(v, JSON.stringify({ findings: [] }))
+  const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
+  assert.match(r.out, /CHƯA done/)
+  assert.match(r.out, /t1/)
+  assert.notEqual(readState(f).stages['10-prd'].status, 'done')
+
+  // Sửa cho T1 xanh thật rồi review lại thì mới được done
+  writeFileSync(join(f, '10-questions.md'), QUESTIONS)
+  assert.equal(run(['gate', 'demo', '10-prd', '--root', r0]).code, 0)
+  assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
+  assert.equal(readState(f).stages['10-prd'].status, 'done')
 })

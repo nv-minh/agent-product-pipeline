@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readConfig } from '../lib/config.js'
 import { readState, writeState } from '../lib/state.js'
-import { runT1, stageDone, requiredTiers } from '../lib/gate.js'
+import { runT1, stageDone, requiredTiers, recordTierRun } from '../lib/gate.js'
+import { newEvidence } from '../lib/evidence.js'
 
 function feature(prdText) {
   const d = mkdtempSync(join(tmpdir(), 'pp-gate-'))
@@ -301,5 +302,37 @@ test('R1: stage overridden vẫn done dù không có artifact_hash, tier hay evi
   const s = readState(d)
   s.stages = { '10-prd': { status: 'done', gate: 'pass', overridden: true, override_count: 1 } }
   writeState(d, s)
+  assert.equal(stageDone(d, config, readState(d), '10-prd').done, true)
+})
+
+// ─── R3: §7.4 là luật về EVIDENCE, không phải luật về mảng `gate` ───────────
+// Quan sát trong review: với `gate: ["t2"]` viết tay, stage tới `done` chỉ
+// bằng một phán quyết LLM trong khi `.evidence/<stage>.t1.log` vẫn ghi
+// `Exit status: 1`.
+test('R3: gate viết tay ["t2"] vẫn bị chặn bởi log t1 đỏ nằm trên đĩa', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d)
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: false, messages: ['đỏ'] }) }])
+  assert.match(readFileSync(join(d, '.evidence/10-prd.t1.log'), 'utf8'), /Exit status: 1/)
+
+  // pipeline.json bị sửa tay: chỉ còn t2 trong gate
+  config.stages['10-prd'].gate = ['t2']
+  const ev = newEvidence(d, '10-prd', 't2', 1)
+  ev.record('pp-review độ sâu', '', 0)
+  const dec = recordTierRun(d, config, '10-prd', 't2', { ok: true, evidence: ev.finish('PASS') })
+
+  assert.equal(dec.done, false)
+  assert.ok(dec.outstanding.includes('t1'), `outstanding phải nêu t1, nhận ${dec.outstanding}`)
+  assert.match(dec.notes.join('\n'), /§7\.4/)
+  assert.notEqual(readState(d).stages['10-prd'].status, 'done')
+})
+
+test('R3: log của tier ngoài gate mà SẠCH thì không chặn gì cả', () => {
+  const d = feature('## User stories\nnội dung đầy đủ\n')
+  const config = readConfig(d) // 10-prd: gate ["t1"]
+  runT1(d, config, readState(d), '10-prd', [{ name: 'x', run: () => ({ name: 'x', ok: true, messages: [] }) }])
+  const ev = newEvidence(d, '10-prd', 't2', 1)
+  ev.record('pp-review độ sâu', '', 0)
+  ev.finish('PASS')
   assert.equal(stageDone(d, config, readState(d), '10-prd').done, true)
 })
