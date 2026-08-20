@@ -40,7 +40,9 @@ test('report in dòng token (tổng hợp mọi entry) và khoảng thời gian 
   const r = run(['report', 'demo', '--root', root])
   assert.equal(r.code, 0)
   assert.match(r.out, /→ token: input 107 · output 53 · cache 15 \(2 lượt, 2 session\) — cập nhật bằng `pp usage-sync demo`/)
-  assert.match(r.out, /→ thời gian: 2026-08-18T09:12:03Z → 2026-08-19T17:40:11Z/)
+  // first ts là deterministic (event seed 08-18); last là ts init THẬT (chạy
+  // lúc test) — không pin giá trị để test không phụ thuộc ngày chạy.
+  assert.match(r.out, /→ thời gian: 2026-08-18T09:12:03Z → \d{4}-\d{2}-\d{2}T/)
 })
 
 test('chưa có dữ liệu usage: dòng gợi ý chạy usage-sync, không in dòng thời gian, exit 0', () => {

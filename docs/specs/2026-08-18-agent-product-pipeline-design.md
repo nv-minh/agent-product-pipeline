@@ -319,7 +319,7 @@ Layout A: root `~/Documents/pinnacle` **không phải git repo**; một feature 
 **Quyết định: thêm repo thứ ba `pinnacle-product/`.**
 
 ```
-/Users/abc/Documents/pinnacle/          ← container, không phải repo
+~/Documents/<workspace>/          ← container, không phải repo
 ├── pinnacle-backend/                   ← repo, code BE
 ├── pinnacle-web/                       ← repo, code FE
 └── pinnacle-product/                   ← repo MỚI, chỉ chứa artifact

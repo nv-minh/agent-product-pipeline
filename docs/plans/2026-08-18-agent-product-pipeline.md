@@ -111,7 +111,7 @@ test('lệnh lạ thì exit 2 và nêu tên lệnh', () => {
 
 - [ ] **Step 2: Chạy test để chắc chắn nó fail**
 
-Run: `cd /Users/abc/Documents/pinnacle/pinnacle-product && node --test tests/cli.test.js`
+Run: `cd /path/to/agent-product-pipeline && node --test tests/cli.test.js`
 Expected: FAIL — `bin/pp` chưa tồn tại (`ENOENT`).
 
 - [ ] **Step 3: Viết implementation tối thiểu**
@@ -1907,7 +1907,7 @@ git commit -m "feat(pp): lệnh gate và advance, slash command /pp"
 - Create: `hooks/stop.sh`
 - Create: `lib/commands/guard.js`
 - Modify: `bin/pp`
-- Modify: `/Users/abc/.claude/settings.json`
+- Modify: `~/.claude/settings.json`
 - Test: `tests/cmd-guard.test.js`
 
 **Interfaces:**
@@ -2021,16 +2021,16 @@ Expected: PASS — 3 test xanh.
 
 - [ ] **Step 5: Nối hook vào Claude Code**
 
-Thêm vào `hooks` trong `/Users/abc/.claude/settings.json` — **giữ nguyên hook `SessionStart` của herdr đang có**:
+Thêm vào `hooks` trong `~/.claude/settings.json` — **giữ nguyên hook `SessionStart` của herdr đang có**:
 
 ```json
 "PreToolUse": [
   { "matcher": "Write|Edit",
-    "hooks": [{ "type": "command", "command": "bash '/Users/abc/Documents/pinnacle/pinnacle-product/hooks/pre-tool-use.sh'", "timeout": 5 }] }
+    "hooks": [{ "type": "command", "command": "bash '/path/to/agent-product-pipeline/hooks/pre-tool-use.sh'", "timeout": 5 }] }
 ],
 "Stop": [
   { "matcher": "*",
-    "hooks": [{ "type": "command", "command": "bash '/Users/abc/Documents/pinnacle/pinnacle-product/hooks/stop.sh'", "timeout": 5 }] }
+    "hooks": [{ "type": "command", "command": "bash '/path/to/agent-product-pipeline/hooks/stop.sh'", "timeout": 5 }] }
 ]
 ```
 
@@ -2497,7 +2497,7 @@ git commit -m "feat(pp): approve, override có ghi sổ, unblock và report"
 - [ ] **Step 1: Khởi tạo feature mồi qua `pp`**
 
 ```bash
-cd /Users/abc/Documents/pinnacle/pinnacle-product
+cd /path/to/agent-product-pipeline
 node bin/pp init <tên-feature-mồi> --size S
 ```
 
