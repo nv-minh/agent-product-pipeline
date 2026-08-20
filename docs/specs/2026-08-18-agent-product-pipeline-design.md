@@ -17,7 +17,7 @@ Máy đang có **ba bộ khung agent chồng nhau**, cùng nạp vào context v�
 |---|---|---|---|
 | AIDLC | `~/.claude/agents/aidlc-*.md` | 9 agent | Pipeline SDLC + 4 human gate, có `aidlc-orchestrator` (LLM quyết luồng) |
 | EM-Team | `~/.claude/em-team/` | 29 agent, 30 workflow, 8 protocol, ~20 skill pack | Delegation qua tmux + message queue |
-| Herdr | `~/CLAUDE.md` + `herdr` 0.7.4 | Leader / BE-Worker / FE-Worker / Exec | **Đang chạy thật** trên `~/Documents/pinnacle` |
+| orchestrator | `~/CLAUDE.md` + `orchestrator` 0.7.4 | Leader / BE-Worker / FE-Worker / Exec | **Đang chạy thật** trên `~/Documents/workspace` |
 
 Ngoài ra:
 
@@ -70,9 +70,9 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 1. **Control flow tất định.** Quyết định "stage nào chạy tiếp" thuộc về shell script đọc file state, **không** thuộc về một LLM orchestrator. Đây là mắt xích yếu của cả AIDLC lẫn EM-Team.
 2. **Hoàn thành là dữ kiện, không phải lời khai.** Không thực thể LLM nào có quyền ghi trạng thái `done`.
 3. **Artifact là ranh giới nén context.** Mỗi stage khai báo `inputs:` tường minh, chạy trong subagent mới, chỉ đọc đúng file đã khai báo.
-4. **Không đụng lớp toolbox.** `dev-ba-kit` và `herdr` là bất khả xâm phạm; mọi thích ứng nằm ở lớp conductor.
+4. **Không đụng lớp toolbox.** `dev-ba-kit` và `orchestrator` là bất khả xâm phạm; mọi thích ứng nằm ở lớp conductor.
 5. **Không dựng swarm cho coding.** Theo Anthropic: multi-agent tốn ~15x token và *kém* hiệu quả với việc phụ thuộc chặt chẽ — mà coding chính là loại đó.
-6. **Simplicity (kế thừa `HERDR_ORCHESTRATOR.md`).** Thay đổi nhỏ nhất thoả mãn yêu cầu + test. Nghi thức nặng là rủi ro, không phải chất lượng.
+6. **Simplicity (kế thừa `ORCHESTRATOR_ORCHESTRATOR.md`).** Thay đổi nhỏ nhất thoả mãn yêu cầu + test. Nghi thức nặng là rủi ro, không phải chất lượng.
 
 ---
 
@@ -86,14 +86,14 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 └─────────────────────┬───────────────────────────────┘
                       │ đọc/ghi
 ┌─ Lớp 2: BLACKBOARD (file trong git) ────────────────┐
-│  pinnacle-product/features/<feature>/               │
+│  product-repo/features/<feature>/               │
 │    pipeline.json · STATE.md · .evidence/            │
 │    00-brief 10-prd 20-ux 30-contract                │
 │    40-testplan 50-security 60-handoff 70-ops        │
 └─────────────────────┬───────────────────────────────┘
                       │ được sinh ra bởi
 ┌─ Lớp 1: TOOLBOX (đã có, KHÔNG sửa) ─────────────────┐
-│  dev-ba-kit 63 skills    +    Herdr (stage dev)     │
+│  dev-ba-kit 63 skills    +    orchestrator (stage dev)     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -117,7 +117,7 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 | 30 | contract | on | `/api-design` + `/api-doc` | `30-contract.md` | **có** |
 | 40 | testplan | on | `/test-cases` + `/test-checklist` | `40-testplan.md` | — |
 | 50 | security | on | **skill cần xây** | `50-security.md` | — |
-| 60 | dev | on | **Herdr** — pipeline chỉ bàn giao | `60-handoff.md` + code + PR | — |
+| 60 | dev | on | **orchestrator** — pipeline chỉ bàn giao | `60-handoff.md` + code + PR | — |
 | 70 | ops | off | **skill cần xây** | `70-ops.md` | — |
 | 90 | archive | on | `pp archive` | `_archive/…` | — |
 
@@ -162,7 +162,7 @@ stages:
     gate:    [t1, t2]
   60-dev:
     enabled: true
-    handoff: herdr
+    handoff: orchestrator
     inputs:  [30-contract.md, 40-testplan.md, 50-security.md]
     outputs: [60-handoff.md]
     gate:    [t1, t2]
@@ -211,7 +211,7 @@ T1 đỏ → **không tốn token nào** cho T2.
 - Mỗi endpoint đủ: method, path, request schema, response schema, danh sách mã lỗi
 - Mỗi endpoint trỏ về ≥1 `US-id`
 - **Reverse coverage:** không US nào cần API mà thiếu endpoint
-- `--live`: diff với `/docs/pinnacle/swagger.json` → phát hiện **contract drift**
+- `--live`: diff với `/docs/api/swagger.json` → phát hiện **contract drift**
 
 **`40-testplan`** — gate đáng giá nhất
 - **Traceability 100%**: mọi `AC-*` trong `10-prd` phải xuất hiện; thiếu → in ra đúng AC nào
@@ -314,15 +314,15 @@ Hai việc không tự động hoá được, và không nên cố: **trả lờ
 
 ### 7.1 Artifact sống ở đâu
 
-Layout A: root `~/Documents/pinnacle` **không phải git repo**; một feature chạm cả hai repo. Artifact không thuộc repo nào.
+Layout A: root `~/Documents/workspace` **không phải git repo**; một feature chạm cả hai repo. Artifact không thuộc repo nào.
 
-**Quyết định: thêm repo thứ ba `pinnacle-product/`.**
+**Quyết định: thêm repo thứ ba `product-repo/`.**
 
 ```
 ~/Documents/<workspace>/          ← container, không phải repo
-├── pinnacle-backend/                   ← repo, code BE
-├── pinnacle-web/                       ← repo, code FE
-└── pinnacle-product/                   ← repo MỚI, chỉ chứa artifact
+├── backend-repo/                   ← repo, code BE
+├── web-repo/                       ← repo, code FE
+└── product-repo/                   ← repo MỚI, chỉ chứa artifact
     ├── constitution.md
     ├── CHANGELOG.md
     ├── lessons/
@@ -335,11 +335,11 @@ Layout A: root `~/Documents/pinnacle` **không phải git repo**; một feature 
         └── _archive/
 ```
 
-*Phương án gọn hơn nếu 3 repo là nhiều:* đặt trong `pinnacle-backend/docs/product/`, FE tham chiếu tương đối. Chấp nhận được, hơi lệch về khái niệm.
+*Phương án gọn hơn nếu 3 repo là nhiều:* đặt trong `backend-repo/docs/product/`, FE tham chiếu tương đối. Chấp nhận được, hơi lệch về khái niệm.
 
 ### 7.2 `constitution.md`
 
-Bộ nguyên tắc bất di bất dịch mà **mọi artifact kế thừa** *(lấy từ GitHub Spec Kit)*: quy tắc Simplicity/YAGNI trong `HERDR_ORCHESTRATOR.md`, convention NestJS/React, boundary BE↔FE, quy tắc contract-first. T2 reviewer kiểm artifact **ngược lại constitution**.
+Bộ nguyên tắc bất di bất dịch mà **mọi artifact kế thừa** *(lấy từ GitHub Spec Kit)*: quy tắc Simplicity/YAGNI trong `ORCHESTRATOR_ORCHESTRATOR.md`, convention NestJS/React, boundary BE↔FE, quy tắc contract-first. T2 reviewer kiểm artifact **ngược lại constitution**.
 
 ### 7.3 `STATE.md` — chỉ `pp` được ghi
 
@@ -413,7 +413,7 @@ NGƯỜI trả lời trong 10-questions.md
 30-contract  → gate → 🚦 HUMAN GATE #2
 40-testplan  → traceability 100% AC → T2 mutation check
 50-security  → mọi endpoint có phân quyền + validate rule
-60-dev  ────→ BÀN GIAO CHO HERDR (§8)
+60-dev  ────→ BÀN GIAO CHO ORCHESTRATOR (§8)
 90-archive   → _archive/ + CHANGELOG.md + lessons/
 ```
 
@@ -424,16 +424,16 @@ NGƯỜI trả lời trong 10-questions.md
 | `pp` (script) | **ghi** | — | — | — |
 | Stage subagent | ⛔ | ghi | ⛔ | ⛔ |
 | Reviewer subagent | ⛔ | ⛔ (chỉ đọc) | ⛔ | ⛔ đọc |
-| Herdr BE/FE Worker | ⛔ | ⛔ | ⛔ | ghi (repo của mình) |
+| orchestrator BE/FE Worker | ⛔ | ⛔ | ⛔ | ghi (repo của mình) |
 | Người dùng | ghi (`pp approve`) | ghi | ghi | ghi |
 
 Dòng đầu giữ cả hệ thống đứng vững: **không thực thể LLM nào có quyền ghi trạng thái hoàn thành.** Ba path bằng chứng mới (`audit.jsonl`, `.review/`, `.usage/`) nằm cùng cột với `STATE.md`/`.evidence/` vì cùng lý do: agent sửa tay evidence là làm giả bằng chứng. Ngoại lệ duy nhất: file `.review-<stage>.json` ở **gốc** feature là **inbox** conductor nộp verdict thô cho `pp` — agent được ghi (đó là bàn giao dữ liệu, `pp` mới là bên ghi state); `.review/` (dir) là bản lưu vĩnh viễn do `pp` tạo ra từ inbox đó.
 
 ---
 
-## 8. Mối nối Herdr
+## 8. Mối nối orchestrator
 
-**`pp` sở hữu artifact và gate. `herdr` sở hữu tiến trình và code.** `pp` không bao giờ gọi `git commit`; `herdr` không bao giờ ghi vào `pinnacle-product/`.
+**`pp` sở hữu artifact và gate. `orchestrator` sở hữu tiến trình và code.** `pp` không bao giờ gọi `git commit`; `orchestrator` không bao giờ ghi vào `product-repo/`.
 
 Stage `60-dev` không chạy skill. Nó sinh `60-handoff.md` — bản tóm tắt **tự chứa** để Worker không cần đọc cả blackboard:
 
@@ -446,22 +446,22 @@ Stage `60-dev` không chạy skill. Nó sinh `60-handoff.md` — bản tóm tắ
 └─ DoD        : yarn lint && yarn build && yarn test
 ```
 
-Chạy theo đúng contract flow đã có trong `HERDR_ORCHESTRATOR.md`:
+Chạy theo đúng contract flow đã có trong `ORCHESTRATOR_ORCHESTRATOR.md`:
 
 ```
 pp handoff 60-dev
- ├─ herdr worktree create --cwd pinnacle-backend --branch feature/<name> …
- ├─ herdr agent start BE-Worker … -- <phần BE của 60-handoff.md>
+ ├─ orchestrator worktree create --cwd backend-repo --branch feature/<name> …
+ ├─ orchestrator agent start BE-Worker … -- <phần BE của 60-handoff.md>
  ├─ pp gate 60-dev --side be     → yarn lint/build/test  +  contract drift
  ├─ merge BE trước  (API producer)
- ├─ herdr agent start FE-Worker … (chạy yarn pinnacle-sdk:generate trước)
+ ├─ orchestrator agent start FE-Worker … (chạy yarn sdk:generate trước)
  ├─ pp gate 60-dev --side fe
  └─ pp gate 60-dev --tier t2     → simplicity reviewer đọc DIFF
 ```
 
-**Contract drift là mối nối hai chiều.** Sau khi BE chạy, `pp gate 30-contract --live` fetch `/docs/pinnacle/swagger.json` và diff với `30-contract.md`. Lệch → đỏ: hoặc BE sai, hoặc contract phải cập nhật (khi đó §7.5 tự đánh `40-testplan`, `50-security` thành `stale`). Không có đường nào để sai lệch trôi qua im lặng.
+**Contract drift là mối nối hai chiều.** Sau khi BE chạy, `pp gate 30-contract --live` fetch `/docs/api/swagger.json` và diff với `30-contract.md`. Lệch → đỏ: hoặc BE sai, hoặc contract phải cập nhật (khi đó §7.5 tự đánh `40-testplan`, `50-security` thành `stale`). Không có đường nào để sai lệch trôi qua im lặng.
 
-Vòng lặp có trần và thông báo tái dùng nguyên cơ chế `HERDR_ORCHESTRATOR.md`: `herdr pane read` → `herdr agent send` → tối đa 3 → `herdr notification show`.
+Vòng lặp có trần và thông báo tái dùng nguyên cơ chế `ORCHESTRATOR_ORCHESTRATOR.md`: `orchestrator pane read` → `orchestrator agent send` → tối đa 3 → `orchestrator notification show`.
 
 ---
 
@@ -496,10 +496,10 @@ Không phải cửa sau mà là **cửa có ghi sổ**. Lý do bắt buộc có:
 **(b) Đổi contract khi BE đang code** — đắt nhất, quy trình cứng:
 
 ```
-herdr agent send BE-Worker "DỪNG, contract đang đổi"
+orchestrator agent send BE-Worker "DỪNG, contract đang đổi"
 sửa 30-contract.md → pp gate 30-contract → 🚦 human gate lại
 pp handoff 60-dev --regen          # sinh 60-handoff.md MỚI
-herdr agent start BE-Worker … -- <handoff mới>
+orchestrator agent start BE-Worker … -- <handoff mới>
 ```
 
 Tuyệt đối **không** báo thay đổi qua chat rồi để worker tự điều chỉnh — nó đã có context cũ và sẽ trộn hai phiên bản. Khởi động lại rẻ hơn gỡ rối.
@@ -541,7 +541,7 @@ Phase này chỉ **lưu dữ liệu có cấu trúc** để làm evidence cải 
 
 ```
 Bước 0  grep toàn bộ ~/.claude tìm tham chiếu tới em-team / aidlc / my-team-plugin
-        (hook, script, statusline, herdr config đều có thể đang trỏ vào)
+        (hook, script, statusline, orchestrator config đều có thể đang trỏ vào)
 Bước 1  mkdir ~/.claude/_archive/2026-08-18/
         MOVE:  em-team/  ·  agents/aidlc-*.md  ·  my-team-plugin/
 Bước 2  session mới → /context → xác nhận không còn nạp
@@ -558,7 +558,7 @@ Rủi ro lớn nhất: **schema và rubric đang viết dựa trên giả địn
 
 ```
 Bước 0 — feature mồi
-  Chọn 1 feature THẬT nhưng nhỏ từ pinnacle, loại đã biết đáp án.
+  Chọn 1 feature THẬT nhưng nhỏ từ workspace, loại đã biết đáp án.
   Chạy tay từng skill (/prd-epic /ac /test-cases), KHÔNG gate, KHÔNG pp.
   Mục đích duy nhất: thu output thật.
 
@@ -583,7 +583,7 @@ Bước 3 — bật gate, chạy lại CHÍNH feature đó
 | 2 | Schema + **T1 cho `10-prd` và `40-testplan`** | hai stage đau nhất đã có cổng |
 | 3 | Hooks: `Stop` + `PreToolUse` | gate thành luật |
 | 4 | T2 reviewer + rubric cho `10-prd`, `40-testplan` | trị "sơ sài / thiếu edge case" |
-| 5 | `30-contract` + handoff Herdr + drift check | nối vào code |
+| 5 | `30-contract` + handoff orchestrator + drift check | nối vào code |
 | 6 | `50-security` (skill mới) | phủ nốt role thiếu |
 | 7 | `90-archive` + vòng lặp `lessons` | hệ thống tự cải thiện |
 | 8 | v2: score · `pp size` · `pp report` · `pp board` | tiện, không cấp bách |
@@ -615,7 +615,7 @@ Thà đặt sẵn tiêu chí dừng còn hơn nuôi thêm một framework thứ 
 | 9 | **`claude-task-master`** | **XML tag** trong markdown để parse chắc chắn; **complexity → độ sâu** (`pp size` S/M/L tự chọn bộ stage); tool modes tiết kiệm token | ✅ (size → v2) |
 | 10 | **Anthropic — hệ multi-agent research** | Cảnh báo: orchestrator-worker **+90,2%** nhưng **~15x token**; token giải thích **80% phương sai**; **kém hiệu quả với việc phụ thuộc chặt — tức là coding**. Ba pattern lấy được mà không cần swarm: (1) đẩy state ra ngoài, (2) worker tự chứa, (3) verify bằng lượt riêng — **chính là 3 lớp của thiết kế này** | ✅ (nền tảng) |
 
-*(Nhóm Conductor / Crystal / Vibe Kanban — worktree mỗi agent — đã được Herdr phủ. Chỉ lấy một ý: `pp board` liệt kê mọi feature đang ở stage nào → v2.)*
+*(Nhóm Conductor / Crystal / Vibe Kanban — worktree mỗi agent — đã được orchestrator phủ. Chỉ lấy một ý: `pp board` liệt kê mọi feature đang ở stage nào → v2.)*
 
 ### So sánh với "Ralph loop"
 

@@ -141,7 +141,7 @@ test('--stdin: file_path lặp key, giá trị CUỐI là path được phép �
 
 // CORRECTION so với brief: guard-write KHÔNG được cần root. Hook PreToolUse
 // chạy trên MỌI Write/Edit ở MỌI project trên máy, không riêng
-// pinnacle-product — nếu guard-write đòi root, nó sẽ lỗi/crash khi chạy
+// product-repo — nếu guard-write đòi root, nó sẽ lỗi/crash khi chạy
 // ngoài project này và chặn nhầm mọi chỉnh sửa file khắp máy.
 test('guard-write vẫn hoạt động đúng khi không có root (chạy ngoài mọi project pp)', () => {
   const noRoot = mkdtempSync(join(tmpdir(), 'pp-guard-noroot-'))

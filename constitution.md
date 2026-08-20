@@ -1,10 +1,10 @@
-# Constitution — Pinnacle
+# Constitution — Product
 
 Nguyên tắc bất di bất dịch. **Mọi artifact trong `features/` kế thừa file này**, và T2 reviewer
 chấm artifact **ngược lại** các điều dưới đây. Sửa file này là quyết định có chủ đích, không phải
 việc làm tiện tay — mỗi lần sửa ghi lý do vào commit message.
 
-> Trạng thái: **v0 — bản nháp đầu**, rút từ `HERDR_ORCHESTRATOR.md` và `AGENTS.md` hiện có.
+> Trạng thái: **v0 — bản nháp đầu**, rút từ `ORCHESTRATOR_ORCHESTRATOR.md` và `AGENTS.md` hiện có.
 > Sẽ được tinh chỉnh ở bước bootstrap (§10.2 của design spec) sau khi chạy feature mồi.
 
 ---
@@ -31,12 +31,12 @@ Không suy đoán độ phức tạp — đọc code rồi hãy viết. Đườn
 
 Mọi thay đổi endpoint / schema / status code phải chốt contract trước khi code.
 Thứ tự bắt buộc: chốt contract → backend (producer) → backend compile ổn định →
-frontend regenerate SDK (`yarn pinnacle-sdk:generate`) → frontend code.
-Frontend **không bao giờ** tự gõ tay kiểu API — chỉ dùng client sinh ra trong `src/libs/pinnacle-sdk`.
+frontend regenerate SDK (`yarn sdk:generate`) → frontend code.
+Frontend **không bao giờ** tự gõ tay kiểu API — chỉ dùng client sinh ra trong `src/libs/sdk`.
 
 ## Điều 5 — Ranh giới repo là tuyệt đối
 
-BE-Worker không sửa `pinnacle-web/`. FE-Worker không sửa `pinnacle-backend/`.
+BE-Worker không sửa `web-repo/`. FE-Worker không sửa `backend-repo/`.
 Không thực thể nào ngoài `bin/pp` ghi vào `STATE.md` hoặc `.evidence/`.
 Việc cắt ngang hai repo phải tách thành một task BE và một task FE riêng biệt.
 
@@ -60,8 +60,8 @@ Mọi AC phải có ít nhất một case thuận và một case nghịch.
 
 ## Điều 8 — Định nghĩa hoàn thành theo repo
 
-- `pinnacle-backend`: `yarn lint` sạch · `yarn build` pass · `*.spec.ts` liên quan xanh
-- `pinnacle-web`: `yarn lint` sạch · `yarn build` pass · vitest xanh
+- `backend-repo`: `yarn lint` sạch · `yarn build` pass · `*.spec.ts` liên quan xanh
+- `web-repo`: `yarn lint` sạch · `yarn build` pass · vitest xanh
 - Commit theo Conventional Commits `type(scope): description`
   (FE ép bằng `.husky/commit-msg`; BE và repo này không có hook — tự giữ kỷ luật)
 

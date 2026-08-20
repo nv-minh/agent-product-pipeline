@@ -1,4 +1,3 @@
-<!-- commands/pp.md — slash command /pp -->
 ---
 description: Chạy conductor pipeline sản phẩm cho một feature
 ---

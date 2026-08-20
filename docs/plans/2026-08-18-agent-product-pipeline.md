@@ -4,7 +4,7 @@
 
 **Goal:** Dựng `pp` — conductor tất định điều khiển pipeline sản phẩm qua các stage, với gate T1 (script) + T2 (reviewer đối kháng) cho hai stage đau nhất `10-prd` và `40-testplan`, và hooks biến gate thành luật.
 
-**Architecture:** Ba lớp — toolbox (`dev-ba-kit` 63 skill + `herdr`, không sửa) · blackboard (file trong `pinnacle-product/features/<name>/`) · conductor (`bin/pp`, Node zero-dep). `pp` đọc `pipeline.json` + `STATE.md`, quyết định stage kế tiếp, chạy gate, ghi `.evidence/`. Không thực thể LLM nào được ghi `STATE.md` hay `.evidence/`.
+**Architecture:** Ba lớp — toolbox (`dev-ba-kit` 63 skill + `orchestrator`, không sửa) · blackboard (file trong `product-repo/features/<name>/`) · conductor (`bin/pp`, Node zero-dep). `pp` đọc `pipeline.json` + `STATE.md`, quyết định stage kế tiếp, chạy gate, ghi `.evidence/`. Không thực thể LLM nào được ghi `STATE.md` hay `.evidence/`.
 
 **Tech Stack:** Node.js ≥18 (builtin `node:test`, `node:assert/strict`, `node:crypto`, `node:fs`), zero npm dependency. Config JSON. Claude Code hooks (`Stop`, `PreToolUse`) dạng shell gọi `pp`.
 
@@ -14,19 +14,19 @@
 
 - **Runtime:** Node.js ≥18. **Zero npm dependency** — chỉ builtin. `package.json` có `"type": "module"`, không có `dependencies`.
 - **Deviation từ spec (có chủ đích):** spec §3 ghi `bin/pp` là shell và config `pipeline.yml`; plan này dùng **Node + `pipeline.json`**. Lý do: shell/Python đều cần cài thêm parser YAML. Tính tất định giữ nguyên. Muốn về YAML: thêm parser trong `lib/config.js`, phần còn lại không đổi.
-- **Test:** `node --test tests/` — chạy từ gốc `pinnacle-product`. Mọi task kết thúc bằng test xanh.
+- **Test:** `node --test tests/` — chạy từ gốc `product-repo`. Mọi task kết thúc bằng test xanh.
 - **Không thực thể LLM nào được ghi `STATE.md` hoặc `.evidence/`** (Constitution Điều 5). Chỉ `bin/pp`.
 - **Hoàn thành là dữ kiện, không phải lời khai** (Điều 2): stage chỉ `done` khi evidence không chứa `Exit status:` khác 0.
 - **AC viết EARS**, đúng một `SHALL` mỗi AC (Điều 6).
 - **Commit theo Conventional Commits** `type(scope): description`. Repo này không có commit-msg hook — tự giữ kỷ luật.
 - **Simplicity (Điều 1):** không thêm lớp trừu tượng nào không có ≥3 chỗ dùng.
-- Mọi đường dẫn trong plan tính từ gốc repo `pinnacle-product/`.
+- Mọi đường dẫn trong plan tính từ gốc repo `product-repo/`.
 
 ## Phạm vi Phase 1
 
 | Trong phạm vi | Ngoài phạm vi (Plan 2/3) |
 |---|---|
-| `pp init/status/advance/gate/approve/override/unblock/report` | `pp handoff` + mối nối Herdr |
+| `pp init/status/advance/gate/approve/override/unblock/report` | `pp handoff` + mối nối orchestrator |
 | Stage `10-prd`, `40-testplan` (T1 + T2) | Stage `30-contract`, `50-security`, `70-ops` |
 | Hooks `Stop` + `PreToolUse` | `90-archive`, vòng lặp `lessons` |
 | Bootstrap fixtures từ `dev-ba-kit` | Chấm điểm, `pp size`, `pp board` |
@@ -119,7 +119,7 @@ Expected: FAIL — `bin/pp` chưa tồn tại (`ENOENT`).
 ```json
 // package.json
 {
-  "name": "pinnacle-product",
+  "name": "product-repo",
   "private": true,
   "type": "module",
   "engines": { "node": ">=18" },
@@ -1172,7 +1172,7 @@ Commands:
   status <feature>                In stage kế tiếp và lý do
 
 Options:
-  --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
+  --root DIR   Gốc repo product-repo (mặc định: tự dò lên từ cwd)
   --help
 `
 
@@ -1220,7 +1220,7 @@ git commit -m "feat(pp): lệnh init và status"
 
 - [ ] **Step 1: Chọn feature mồi**
 
-Chọn một feature **thật nhưng nhỏ** từ `pinnacle-backend`/`pinnacle-web` mà bạn đã biết đáp án — loại đã làm xong hoặc hiểu rõ. Không chọn feature mới. Mục đích là so được output của agent với sự thật bạn đã biết.
+Chọn một feature **thật nhưng nhỏ** từ `backend-repo`/`web-repo` mà bạn đã biết đáp án — loại đã làm xong hoặc hiểu rõ. Không chọn feature mới. Mục đích là so được output của agent với sự thật bạn đã biết.
 
 Ghi tên feature và một brief 3–10 dòng vào `tests/fixtures/real/NOTES.md` mục "Feature mồi".
 
@@ -2021,7 +2021,7 @@ Expected: PASS — 3 test xanh.
 
 - [ ] **Step 5: Nối hook vào Claude Code**
 
-Thêm vào `hooks` trong `~/.claude/settings.json` — **giữ nguyên hook `SessionStart` của herdr đang có**:
+Thêm vào `hooks` trong `~/.claude/settings.json` — **giữ nguyên hook `SessionStart` của orchestrator đang có**:
 
 ```json
 "PreToolUse": [
@@ -2568,7 +2568,7 @@ git commit -m "test(bootstrap): chạy feature mồi qua pipeline đầy đủ v
 | §7.4 evidence | 5 | |
 | §7.5 vô hiệu hoá ngược dòng | 3 (`isStale`) + 4 (`regate`) | |
 | §7.7 phân quyền ghi | 12 | |
-| §8 mối nối Herdr | — | **Plan 2** |
+| §8 mối nối orchestrator | — | **Plan 2** |
 | §9.1 tập trạng thái | 4, 6 | |
 | §9.2 escape hatch | 14 | |
 | §9.4 tự giám sát | 14 (`pp report`) | |

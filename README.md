@@ -1,7 +1,7 @@
-# pinnacle-product
+# product-repo
 
-Repo artifact của workspace Pinnacle (Layout A). Chứa **tài liệu sản phẩm và trạng thái pipeline**,
-không chứa code. Code nằm ở hai repo anh em: `pinnacle-backend` (NestJS) và `pinnacle-web` (React).
+Repo artifact của workspace Product (Layout A). Chứa **tài liệu sản phẩm và trạng thái pipeline**,
+không chứa code. Code nằm ở hai repo anh em: `backend-repo` (NestJS) và `web-repo` (React).
 
 Lý do tồn tại: một feature chạm cả hai repo code, nên artifact của nó không thuộc về repo nào.
 Đặt riêng ở đây thì tài liệu có lịch sử git riêng, nhịp review riêng, và `STATE.md` kiểm toán được.
