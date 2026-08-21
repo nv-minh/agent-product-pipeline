@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 import { readState, writeState } from '../lib/state.js'
-import { makeRoot, passT1Prd, completePrd, verdictFile, PRD_REWRITTEN } from './helpers.js'
+import { makeRoot, passT1Prd, completePrd, verdictFile, PRD_REWRITTEN, PRD, QUESTIONS_CLEAR } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -115,6 +115,29 @@ test('pp advance nêu đích danh các tier bắt buộc của stage kế tiếp
   assert.equal(r.code, 0)
   assert.match(r.out, /Tier bắt buộc\s*:\s*t1, t2/)
   assert.match(r.out, /pp review-record demo 10-prd/)
+})
+
+// ─── Bản 2026-08-21 (trụ cột 2, đường b): gate và advance cùng biết nhánh
+// "brief + refs đủ rõ → khai khối tự đánh giá thay vì hỏi 8 câu" ───
+
+test('gate 10-prd xanh với khối tự đánh giá + 1 câu verify (không cần 8 câu)', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+  writeFileSync(join(dir, '10-questions.md'), QUESTIONS_CLEAR)
+  writeFileSync(join(dir, '10-prd.md'), PRD)
+  const r = run(['gate', 'demo', '10-prd', '--root', r0])
+  assert.equal(r.code, 0, r.out)
+})
+
+test('pp advance nêu trước luật câu hỏi của 10-prd — cả hai đường hợp lệ', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const r = run(['advance', 'demo', '--root', r0])
+  assert.equal(r.code, 0)
+  assert.match(r.out, /Câu hỏi\s*:/)
+  assert.match(r.out, /8 câu hỏi phân biệt/)
+  assert.match(r.out, /Tự đánh giá độ rõ/)
 })
 
 // FIX review cuối (finding 9c): đột biến `return 3` -> `return 0` ở

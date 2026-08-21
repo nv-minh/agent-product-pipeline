@@ -33,7 +33,7 @@ test('checksFor với schemaName "10-prd.change" nạp schema override và VẪN
 
 // Chống trôi dạt hai file: schema change phải là SUPERSET của schema gốc
 // (spec §5.2 — thêm Delta, không bớt gì).
-test('10-prd.change.json là superset heading + giữ nguyên riskChecklist/minQuestions của 10-prd.json', () => {
+test('10-prd.change.json là superset heading + giữ nguyên riskChecklist/minQuestions/clearQuestionsMax của 10-prd.json', () => {
   const base = JSON.parse(readFileSync(join(REPO, 'schema/10-prd.json'), 'utf8'))
   const change = JSON.parse(readFileSync(join(REPO, 'schema/10-prd.change.json'), 'utf8'))
   for (const h of base.requiredHeadings) {
@@ -41,4 +41,5 @@ test('10-prd.change.json là superset heading + giữ nguyên riskChecklist/minQ
   }
   assert.deepEqual(change.riskChecklist, base.riskChecklist)
   assert.equal(change.minQuestions, base.minQuestions)
+  assert.equal(change.clearQuestionsMax, base.clearQuestionsMax)
 })

@@ -11,5 +11,6 @@
     "rollback"
   ],
   "minQuestions": 8,
+  "clearQuestionsMax": 2,
   "deltaChecklist": ["ADDED", "MODIFIED", "REMOVED"]
 }

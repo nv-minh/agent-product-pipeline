@@ -282,9 +282,9 @@ Gate T1 chỉ kiểm *có đủ mục không*, không kiểm *có sâu không*. 
 - `high` → chặn · `medium` → ghi thành open question, không chặn
 - Chỉ chạy ở 4 stage: `10-prd`, `40-testplan`, `50-security`, `60-dev` (đọc **diff**)
 
-### Trụ cột 2 — Ép hỏi trước khi viết
+### Trụ cột 2 — Ép hỏi trước khi viết (hai đường hợp lệ)
 
-`10-prd` **không được ghi `10-prd.md`** cho tới khi có `10-questions.md` với ≥8 câu hỏi **và tất cả đã có câu trả lời**. PreToolUse chặn write; gate kiểm mọi câu hỏi có dòng `A:` khác rỗng.
+`10-prd` **không được ghi `10-prd.md`** cho tới khi `10-questions.md` hợp lệ theo MỘT trong hai đường: **(a)** ≥8 câu hỏi **và tất cả đã có câu trả lời**, hoặc **(b)** — khi agent tự đánh giá `00-brief.md` + `refs/` là đủ rõ — khối `## Tự đánh giá độ rõ` ghi `Lý do đủ rõ:` + `Giả định đã xác minh:` và chỉ còn tối đa `clearQuestionsMax` (2) câu verify (mọi câu hỏi vẫn phải có `A:` khác rỗng). T1 chỉ kiểm cấu trúc của khối; tính trung thực của lời khai "đủ rõ" do T2 (rubric #7) và human gate giữ. PreToolUse chặn write; gate kiểm mọi câu hỏi có dòng `A:` khác rỗng.
 
 ### Trụ cột 3 — Neo vào code thật (gate chống ảo giác rẻ nhất)
 
@@ -309,9 +309,9 @@ Mỗi lần gate đỏ, hoặc mỗi lần người dùng phải sửa tay → m
 
 ### 6.1 Giới hạn thành thật
 
-**Chất lượng PRD bị chặn trên bởi chất lượng `00-brief` và số câu hỏi người dùng chịu trả lời.** Hệ thống ép được nó hỏi, không bỏ trống, bị phản biện, neo vào code thật — nhưng nếu trả lời "tùy bạn" thì đầu ra vẫn sơ sài.
+**Chất lượng PRD bị chặn trên bởi chất lượng `00-brief` và lời khai "đủ rõ" của agent.** Từ bản 2026-08-21, agent tự đánh giá độ rõ của brief + refs: đủ rõ thì khai khối tự đánh giá (lý do + giả định đã xác minh) và chỉ hỏi tối đa 2 câu verify. Đòn bẩy của người chuyển sang: trả lời thực chất những câu còn được hỏi, và từ chối ở human gate khi lời khai không đáng tin. Hệ thống ép được nó không bỏ trống, bị phản biện, neo vào code thật — nhưng nếu brief sơ sài thì đầu ra vẫn sơ sài.
 
-Hai việc không tự động hoá được, và không nên cố: **trả lời câu hỏi ở stage 10**, và **duyệt 2 human gate**.
+Hai việc không tự động hoá được, và không nên cố: **phán xét lời khai đủ rõ ở stage 10**, và **duyệt 2 human gate**.
 
 ---
 
@@ -403,10 +403,11 @@ NGƯỜI viết 00-brief.md   (3–10 dòng, viết dạng DELTA so với hiện
 
 /pp advance ──┐
    pp status → "kế tiếp: 10-prd, thiếu 10-questions.md"
-   subagent(inputs: brief + constitution) → hỏi ≥8 câu → 10-questions.md
+   subagent(inputs: brief + constitution) → 10-questions.md:
+     8 câu đã trả lời, HOẶC khối "## Tự đánh giá độ rõ" + ≤2 câu verify
    ⛔ PreToolUse chặn ghi 10-prd.md  →  DỪNG, chờ người
 
-NGƯỜI trả lời trong 10-questions.md
+NGƯỜI trả lời các câu còn mở trong 10-questions.md
 
 /pp advance ──┐
    subagent MỚI(inputs: brief + questions + constitution)

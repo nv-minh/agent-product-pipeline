@@ -233,7 +233,8 @@ Rubric T2 (`rubric/05-impact.md`) chấm: hiện trạng có bịa không (đố
 ### 5.2 `10-prd` delta
 
 Giữ id `10-prd` → thừa hưởng nguyên bộ check story/AC và nhịp "ép hỏi trước khi viết"
-(`10-questions.md`). Khác duy nhất: `"schema": "10-prd.change"` —
+(`10-questions.md`, kể cả nhánh tự đánh giá độ rõ của trụ cột 2 spec nền).
+Khác duy nhất: `"schema": "10-prd.change"` —
 `schema/10-prd.change.json` = toàn bộ schema `10-prd.json` **+ heading Delta**: mỗi thay đổi
 đánh dấu `ADDED / MODIFIED / REMOVED` so với hiện trạng đã chốt ở `05-impact.md`
 (pattern OpenSpec) — PRD delta, không phải PRD viết lại.

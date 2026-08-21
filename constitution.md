@@ -68,8 +68,11 @@ Mọi AC phải có ít nhất một case thuận và một case nghịch.
 ## Điều 9 — Con người quyết đúng hai chỗ
 
 Human gate sau `10-prd` và sau `30-contract`. Không thêm gate thứ ba mà không có lý do ghi lại.
-Đổi lại, con người có nghĩa vụ trả lời câu hỏi ở stage 10 một cách thực chất —
-chất lượng PRD bị chặn trên bởi chất lượng câu trả lời đó.
+Stage 10 có hai đường hợp lệ: agent tự đánh giá `00-brief.md` + `refs/` là đủ rõ
+(khai khối `## Tự đánh giá độ rõ` + tối đa 2 câu verify), hoặc hỏi đủ 8 câu như cũ.
+Đổi lại, con người có nghĩa vụ trả lời thực chất những câu còn được hỏi —
+và từ chối ở human gate khi lời khai "đã đủ rõ" không đáng tin.
+Chất lượng PRD bị chặn trên bởi chất lượng câu trả lời và sự phán xét đó.
 
 ## Điều 10 — Sai thì ghi lại
 

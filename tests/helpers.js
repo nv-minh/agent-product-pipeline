@@ -60,6 +60,19 @@ Q8: Rollback thế nào nếu hỏng?
 A: Tắt feature flag, không có migration dữ liệu.
 `
 
+// Bản 2026-08-21 (trụ cột 2, đường b): brief + refs đủ rõ — agent khai khối tự
+// đánh giá thay vì hỏi 8 câu, chỉ chừa lại một câu verify đã tự trả lời được.
+export const QUESTIONS_CLEAR = `# Câu hỏi — demo
+
+## Tự đánh giá độ rõ
+
+Lý do đủ rõ: brief nêu đủ hiện trạng, phạm vi và ranh giới; refs/source.md là nguyên văn ticket.
+Giả định đã xác minh: bảng feedback là bảng mới hoàn toàn (đã đọc schema hiện có); giới hạn 2000 ký tự trùng khớp check validate hiện hành.
+
+Q1: Có cần ghi audit event cho lệnh gửi feedback không?
+A: Có — cùng quy ước mọi lệnh ghi của module này.
+`
+
 // B2: T1 nay đòi frontmatter (spec §5.1) và đối chiếu `feature`/`stage` với dữ
 // kiện thật — nên fixture "đủ sạch để T1 xanh" phải có nó. Tách thành hàm vì tên
 // feature không phải lúc nào cũng là `demo`: một artifact khai `feature: demo`

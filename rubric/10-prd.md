@@ -35,6 +35,15 @@ Với MỖI tiêu chí, trả verdict kèm **trích dẫn nguyên văn** từ ar
   `MODIFIED` mô tả một hành vi chưa từng tồn tại (đó là `ADDED`).
 - Severity: **high**
 
-<!-- Bổ sung tiêu chí 7+ khi lessons/10-prd.md tích luỹ đủ mẫu gate đỏ lặp lại
+## 7. Lời khai "đủ rõ" là trung thực (CHỈ khi `features/<tên-feature>/10-questions.md` — tên feature đọc ở frontmatter artifact — có khối `## Tự đánh giá độ rõ`; không có khối thì bỏ qua tiêu chí này)
+- Đạt: lý do đủ rõ truy được về đúng brief/refs của feature này; mỗi giả định có
+  dẫn chứng đã xác minh (cite path code/refs thật); các câu verify (nếu có) đúng là
+  điểm rủi ro đáng hỏi chứ không phải hỏi cho có.
+- Trượt: lý do chung chung dùng cho feature nào cũng được; giả định chưa hề được
+  xác minh (không cite gì); khai đủ rõ 0 câu cho một thay đổi chạm hành vi hiện có
+  mà chẳng có gì đáng verify.
+- Severity: **high**
+
+<!-- Bổ sung tiêu chí 8+ khi lessons/10-prd.md tích luỹ đủ mẫu gate đỏ lặp lại
      (D7: cite cũ trỏ tests/fixtures/real/NOTES.md — file đó chưa từng tồn tại
      trong repo; rubric không được cite thứ nó không thể mở). -->

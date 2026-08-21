@@ -10,5 +10,6 @@
     "hiệu năng khi dữ liệu lớn",
     "rollback"
   ],
-  "minQuestions": 8
+  "minQuestions": 8,
+  "clearQuestionsMax": 2
 }

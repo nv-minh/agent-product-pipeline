@@ -98,6 +98,88 @@ test('dưới 8 câu hỏi thì fail', () => {
   assert.match(r.messages[0], /8/)
 })
 
+// ─── Bản 2026-08-21 (trụ cột 2, đường b): khối "## Tự đánh giá độ rõ" ───
+// Khi brief + refs đủ rõ, agent KHAI thay vì hỏi 8 câu. T1 chỉ kiểm cấu trúc
+// của lời khai; tính trung thực của nó là việc của T2 (rubric #7) + human gate.
+
+const CLEAR_BLOCK = `## Tự đánh giá độ rõ
+
+Lý do đủ rõ: brief nêu đủ hiện trạng, phạm vi và ranh giới.
+Giả định đã xác minh: bảng mới hoàn toàn, không chặn migration cũ (đã đọc schema hiện có).
+`
+
+test('khai khối tự đánh giá + 0 câu hỏi thì pass', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(join(d, '10-questions.md'), `# Câu hỏi\n\n${CLEAR_BLOCK}`)
+  assert.equal(checkQuestionsAnswered(d).ok, true)
+})
+
+test('khai khối tự đánh giá + 2 câu verify trả lời đủ thì pass', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(
+    join(d, '10-questions.md'),
+    `# Câu hỏi\n\n${CLEAR_BLOCK}\nQ1: hỏi một?\nA: đáp một.\n\nQ2: hỏi hai?\nA: đáp hai.\n`,
+  )
+  assert.equal(checkQuestionsAnswered(d).ok, true)
+})
+
+test('khai khối tự đánh giá nhưng hỏi 3 câu thì fail — mâu thuẫn với lời khai', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(
+    join(d, '10-questions.md'),
+    `# Câu hỏi\n\n${CLEAR_BLOCK}\nQ1: hỏi?\nA: đáp.\n\nQ2: hỏi?\nA: đáp.\n\nQ3: hỏi?\nA: đáp.\n`,
+  )
+  const r = checkQuestionsAnswered(d)
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /tối đa 2 câu verify/)
+  assert.match(r.messages.join('\n'), /xoá khối/)
+})
+
+test('khối tự đánh giá thiếu dòng "Lý do đủ rõ" thì fail', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(
+    join(d, '10-questions.md'),
+    '# Câu hỏi\n\n## Tự đánh giá độ rõ\n\nGiả định đã xác minh: bảng mới hoàn toàn.\n',
+  )
+  const r = checkQuestionsAnswered(d)
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /Lý do đủ rõ/)
+})
+
+test('dòng "Giả định đã xác minh" bỏ trống thì fail', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(
+    join(d, '10-questions.md'),
+    '# Câu hỏi\n\n## Tự đánh giá độ rõ\n\nLý do đủ rõ: brief nêu đủ phạm vi.\nGiả định đã xác minh:\n',
+  )
+  const r = checkQuestionsAnswered(d)
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /Giả định đã xác minh/)
+})
+
+// Cùng luật "cùng dòng" của checkSectionChecklist (xem test "mục rủi ro bỏ trống
+// Ở GIỮA section"): giá trị nhãn là phần còn lại của CHÍNH dòng đó — không mượn
+// được nội dung dòng sau, nếu không một nhãn bỏ trống sẽ qua gate.
+test('giá trị nhãn viết ở dòng sau không được tính — không mượn được dòng kế', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(
+    join(d, '10-questions.md'),
+    '# Câu hỏi\n\n## Tự đánh giá độ rõ\n\nLý do đủ rõ:\nbrief nêu đủ phạm vi ở dòng này nhưng không tính.\nGiả định đã xác minh: bảng mới hoàn toàn.\n',
+  )
+  const r = checkQuestionsAnswered(d)
+  assert.equal(r.ok, false)
+  assert.equal(r.messages.length, 1)
+  assert.match(r.messages[0], /Lý do đủ rõ/)
+})
+
+test('khai khối tự đánh giá + câu verify chưa có câu trả lời thì fail', () => {
+  const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
+  writeFileSync(join(d, '10-questions.md'), `# Câu hỏi\n\n${CLEAR_BLOCK}\nQ1: hỏi?\nA:\n`)
+  const r = checkQuestionsAnswered(d)
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /Q1 chưa có câu trả lời/)
+})
+
 // FINDING 1: literal space in EARS patterns false-fails a multi-line AC
 test('AC có xuống dòng trước THE SYSTEM SHALL vẫn pass', () => {
   const withNewline = OK_PRD.replace(
