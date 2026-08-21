@@ -12,7 +12,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { makeRoot, run } from './helpers.js'
+import { makeRoot, run, runSplit } from './helpers.js'
 
 test('flag lạ (--form thay vì --from) → exit 2, nêu tên flag, KHÔNG tạo thư mục', () => {
   const r0 = makeRoot()
@@ -77,4 +77,60 @@ test('--tier=t2 bị từ chối đúng như --tier t2 (không âm thầm chạy
   assert.equal(r.code, 2)
   assert.match(r.out, /chỉ chạy T1/)
   assert.ok(!existsSync(join(r0, 'features/demo/.evidence')), 'gate chưa hề chạy thì không được để lại evidence')
+})
+
+// FINDING (lab 2026-08-21): flag ĐÚNG TÊN nhưng SAI LỆNH từng chỉ in lại usage
+// của lệnh mà không nói flag nào đang thừa — người dùng phải tự diff usage với
+// dòng lệnh của mình. Lớp hai của allowlist: mỗi lệnh khai flag riêng; sai thì
+// nêu đích danh flag thừa + flag lệnh đó thật sự nhận.
+test('flag đúng tên nhưng sai lệnh (--from cho review-record) → exit 2, nêu flag đúng', () => {
+  const r0 = makeRoot()
+  const r = run(['review-record', 'demo', '10-prd', '--from', '/tmp/x.json', '--root', r0])
+  assert.equal(r.code, 2)
+  assert.match(r.out, /--from/)
+  assert.match(r.out, /review-record/)
+  assert.match(r.out, /--verdict/)
+})
+
+test('flag sai lệnh bị chặn TRƯỚC khi lệnh chạy (gate --reason không để lại evidence)', () => {
+  const r0 = makeRoot()
+  assert.equal(run(['init', 'demo', '--size', 'S', '--root', r0]).code, 0)
+  const r = run(['gate', 'demo', '10-prd', '--reason', 'x', '--root', r0])
+  assert.equal(r.code, 2)
+  assert.ok(!existsSync(join(r0, 'features/demo/.evidence')))
+})
+
+// N1 (lab 2026-08-21): feature không tồn tại từng đổ raw ENOENT (lộ cả đường
+// symlink /private/... của macOS) và exit 1 như lỗi runtime — trong khi đây là
+// lỗi đối số: exit 2 như unknown command/stage, kèm danh sách feature thật.
+test('feature không tồn tại → exit 2 + liệt kê feature đang có, không ENOENT', () => {
+  const r0 = makeRoot()
+  assert.equal(run(['init', 'demo', '--size', 'S', '--root', r0]).code, 0)
+  const r = run(['status', 'khong-ton-tai', '--root', r0])
+  assert.equal(r.code, 2)
+  assert.match(r.out, /không tồn tại/)
+  assert.match(r.out, /demo/)
+  assert.doesNotMatch(r.out, /ENOENT/)
+})
+
+// N3: lỗi dùng → stderr; stdout chỉ chở dữ liệu (scripting bắt stream đúng).
+test('lỗi dùng ra stderr, stdout sạch', () => {
+  const r = runSplit(['status', 'khong-ton-tai', '--root', makeRoot()])
+  assert.equal(r.code, 2)
+  assert.equal(r.stdout, '')
+  assert.match(r.stderr, /không tồn tại/)
+})
+
+// N7: `pp help` từng bị coi là lệnh lạ (exit 2 dù có in usage).
+test('pp help là alias của --help — exit 0, usage ra stdout', () => {
+  const r = runSplit(['help'])
+  assert.equal(r.code, 0)
+  assert.match(r.stdout, /Usage: pp/)
+})
+
+test('pp không đối số → usage ra stderr + exit 2 (không lẫn vào dữ liệu)', () => {
+  const r = runSplit([])
+  assert.equal(r.code, 2)
+  assert.equal(r.stdout, '')
+  assert.match(r.stderr, /Usage: pp/)
 })

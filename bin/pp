@@ -120,25 +120,57 @@ function findRoot(args) {
 
 // FINDING (review 8c825c9..44c1ecb): một flag GÕ SAI TÊN đi qua cả CLI mà
 // không ai từ chối — `pp init x --type change --form old-a` exit 0 rồi lặng lẽ
-// bỏ đúng cái liên kết vừa được yêu cầu. Allowlist chung cho cả CLI (không
-// per-command): rẻ, và đủ bắt lớp lỗi đánh máy. Flag đúng tên nhưng vô nghĩa
-// với lệnh đó vẫn là việc của từng lệnh (init đã nói `--from` chỉ có nghĩa với
-// `--type change`) — đó là hai lớp khác nhau, không thay thế nhau.
-const KNOWN_FLAGS = new Set([
-  'from', 'path', 'reason', 'repos', 'root', 'since', 'size', 'stdin', 'tier',
-  'transcripts', 'type', 'verdict', 'workspace',
-])
+// bỏ đúng cái liên kết vừa được yêu cầu. Allowlist chung cho cả CLI: rẻ, và đủ
+// bắt lớp lỗi đánh máy.
+//
+// FINDING (lab 2026-08-21) — lớp HAI: flag ĐÚNG TÊN nhưng dùng SAI LỆNH.
+// `pp review-record f s --from x` từng chỉ in lại usage mà không nói flag nào
+// đang thừa; người dùng phải tự diff usage với dòng lệnh của mình. Mỗi lệnh
+// khai flag của riêng nó; flag đúng-tên-sai-lệnh bị nêu đích danh kèm flag đúng.
+const SHARED_FLAGS = ['root', 'workspace']
+const FLAGS_OF_COMMAND = {
+  init: ['size', 'type', 'from'],
+  status: [],
+  gate: ['tier'],
+  advance: [],
+  'guard-write': ['path', 'stdin'],
+  'guard-stop': [],
+  'review-prompt': [],
+  'review-record': ['verdict'],
+  approve: [],
+  override: ['reason'],
+  unblock: ['reason'],
+  report: [],
+  'usage-sync': ['since', 'transcripts', 'repos'],
+  doctor: [],
+}
+const KNOWN_FLAGS = new Set([...SHARED_FLAGS, ...Object.values(FLAGS_OF_COMMAND).flat()])
 
-function badFlag(args) {
-  const unknown = Object.keys(parseArgs(args).flags).filter((f) => !KNOWN_FLAGS.has(f))
-  if (!unknown.length) return false
-  process.stdout.write(
-    `pp: không biết flag ${unknown.map((f) => `--${f}`).join(', ')}.\n` +
-    `Flag hợp lệ: ${[...KNOWN_FLAGS].sort().map((f) => `--${f}`).join(' ')}\n` +
-    'Gõ sai tên flag KHÔNG được ngầm coi là "không truyền flag" — nó làm mất ' +
-    'chính điều bạn vừa yêu cầu mà không ai biết.\n',
-  )
-  return true
+function badFlag(args, cmd) {
+  const flags = Object.keys(parseArgs(args).flags)
+  const unknown = flags.filter((f) => !KNOWN_FLAGS.has(f))
+  if (unknown.length) {
+    process.stderr.write(
+      `pp: không biết flag ${unknown.map((f) => `--${f}`).join(', ')}.\n` +
+      `Flag hợp lệ: ${[...KNOWN_FLAGS].sort().map((f) => `--${f}`).join(' ')}\n` +
+      'Gõ sai tên flag KHÔNG được ngầm coi là "không truyền flag" — nó làm mất ' +
+      'chính điều bạn vừa yêu cầu mà không ai biết.\n',
+    )
+    return true
+  }
+  // cmd lạ (đường gọi không qua main) chỉ qua lớp 1 — không chết oan.
+  if (!FLAGS_OF_COMMAND[cmd]) return false
+  const hợpLệnh = new Set([...FLAGS_OF_COMMAND[cmd], ...SHARED_FLAGS])
+  const saiLệnh = flags.filter((f) => !hợpLệnh.has(f))
+  if (saiLệnh.length) {
+    const củaLệnh = FLAGS_OF_COMMAND[cmd]
+    process.stderr.write(
+      `pp: ${saiLệnh.map((f) => `--${f}`).join(', ')} không dùng được với lệnh "${cmd}" — ` +
+      `lệnh này nhận: ${củaLệnh.length ? củaLệnh.map((f) => `--${f}`).join(' ') : 'chỉ --root/--workspace'}\n`,
+    )
+    return true
+  }
+  return false
 }
 
 // C3 — `--root` TỪNG ĐƯỢC TIN KHÔNG KIỂM, KHÁC HẲN NHÁNH DÒ CWD NGAY TRÊN.
@@ -173,13 +205,19 @@ function findWorkspace(args, root) {
 
 async function main(argv) {
   const [cmd, ...rest] = argv
-  if (!cmd || cmd === '--help' || cmd === '-h') {
+  if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     process.stdout.write(USAGE)
-    return cmd ? 0 : 2
+    return 0
+  }
+  if (!cmd) {
+    // Gõ `pp` trống là lỗi dùng (exit 2); trợ giúp in ra stderr để scripting
+    // (`pp 2>/dev/null`) không nhặt nhầm usage làm dữ liệu.
+    process.stderr.write(USAGE)
+    return 2
   }
   const handler = COMMANDS[cmd]
   if (!handler) {
-    process.stdout.write(`pp: không biết lệnh "${cmd}"\n\n${USAGE}`)
+    process.stderr.write(`pp: không biết lệnh "${cmd}"\n\n${USAGE}`)
     return 2
   }
   // C2: kiểm tên feature Ở ĐÂY, một chỗ cho mọi lệnh — một tên mang "/" hay
@@ -192,7 +230,7 @@ async function main(argv) {
   }
   // Flag lạ chết TRƯỚC mọi thứ khác: nếu người dùng gõ sai tên flag thì mọi
   // suy luận sau đó (kể cả --root) đang dựa trên một dòng lệnh khác dòng họ nghĩ.
-  if (badFlag(rest)) return 2
+  if (badFlag(rest, cmd)) return 2
   if (badExplicitRoot(rest)) return 2
   const root = findRoot(rest)
   return await handler(rest, { root, workspace: findWorkspace(rest, root) })
@@ -200,4 +238,4 @@ async function main(argv) {
 
 main(process.argv.slice(2))
   .then((code) => process.exit(code ?? 0))
-  .catch((err) => { process.stderr.write(`pp: ${err.message}\n`); process.exit(1) })
+  .catch((err) => { process.stderr.write(`pp: ${err.message}\n`); process.exit(err.exitCode ?? 1) })

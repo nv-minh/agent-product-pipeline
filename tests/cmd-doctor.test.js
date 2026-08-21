@@ -54,6 +54,10 @@ test('chưa đăng ký hook ở đâu → doctor ĐỎ và nói rõ script khôn
   assert.match(r.out, /hook PreToolUse\s+CHƯA đăng ký/)
   assert.match(r.out, /hook Stop\s+CHƯA đăng ký/)
   assert.match(r.out, /không bao giờ được gọi/)
+  // N4 (lab 2026-08-21): nêu hậu quả phải kèm LỐI SỬA dán được — không bắt
+  // người dùng tự viết JSON hooks từ trí nhớ.
+  assert.match(r.out, /sửa — dán vào "hooks"/)
+  assert.match(r.out, /CLAUDE_PROJECT_DIR\/hooks\/pre-tool-use\.sh/)
 })
 
 test('đăng ký đủ hai hook ở project settings → doctor XANH', () => {
