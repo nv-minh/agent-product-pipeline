@@ -64,6 +64,19 @@ test('R2: pp review-record in đúng dòng CHƯA done chuẩn khi verdict có fi
   const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(r.code, 1)
   assert.ok(r.out.includes(notDone('t2')), `thiếu dòng chuẩn trong:\n${r.out}`)
+  // N8: review-record đỏ là T2 đỏ — T1 chưa từng chạy trong lệnh này, nên verb
+  // vẫn là "chạy" (đường lối ra review lại), không phải "chạy lại".
+  assert.ok(r.out.includes('chạy: pp review-prompt demo 10-prd'), `thiếu hướng dẫn review trong:\n${r.out}`)
+})
+
+// N8 (lab 2026-08-21): sau khi `pp gate` đỏ, dòng hướng dẫn từng đọc "chạy: pp
+// gate ..." — đúng lệnh người đọc VỪA gõ. Chạy lại không đổi gì: lỗi nằm ở
+// artifact (đã in ngay phía trên). Verb phải chỉ đúng việc kế tiếp.
+test('N8: gate ĐỎ hướng "sửa artifact ... rồi chạy lại", không lặp lệnh vừa gõ', () => {
+  const r0 = initRoot()
+  const r = run(['gate', 'demo', '10-prd', '--root', r0]) // artifact chưa tồn tại → T1 đỏ
+  assert.equal(r.code, 1)
+  assert.ok(r.out.includes('sửa artifact theo các lỗi trên rồi chạy lại: pp gate demo 10-prd'), `trong:\n${r.out}`)
 })
 
 // Hai lệnh phải dùng CHUNG một hàm: cùng một trạng thái stage thì cùng một chữ.
