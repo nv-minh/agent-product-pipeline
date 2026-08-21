@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, cpSync, readFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, cpSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -202,4 +202,40 @@ test('R1: viết lại artifact sau khi stage done thì pp gate một mình khô
   assert.match(g.out, /CHƯA done — còn thiếu tier: t2/)
   assert.match(g.out, /10-prd\.md đã bị SỬA SAU KHI t2 chạy/)
   assert.notEqual(readState(dir).stages['10-prd'].status, 'done')
+})
+
+// ─── N10 (lab 2026-08-21): `gate --dry-run` — thử gate KHÔNG đốt lượt ───────
+// §9.1 đếm MỌI lần chạy gate vào attempts. Lab quan sát nhu cầu thật: biết
+// "artifact của tôi có qua không" TRƯỚC khi tiêu một lượt (kể cả lần gõ nhầm
+// pipe `| head`). dry-run chạy đúng tập check nhưng không ghi BẤT CỨ thứ gì —
+// không .evidence/, không attempts, không STATE, không audit.
+test('N10: gate --dry-run ĐỎ — exit 1, không .evidence, không attempts, không đổi STATE', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+  const r = run(['gate', 'demo', '10-prd', '--dry-run', '--root', r0]) // artifact chưa tồn tại
+  assert.equal(r.code, 1)
+  assert.match(r.out, /\(dry-run\) 10-prd: ĐỎ/)
+  assert.match(r.out, /không ghi sổ/)
+  assert.match(r.out, /Chạy thật: pp gate demo 10-prd/)
+  assert.ok(!existsSync(join(dir, '.evidence')), 'dry-run không được để lại .evidence/')
+  const st = readState(dir).stages['10-prd']
+  assert.equal(st, undefined, 'dry-run không được ghi gì vào state (stage chưa có bản ghi)')
+})
+
+test('N10: dry-run XANH cũng không ghi sổ; gate thật sau đó đếm từ attempt 1', () => {
+  const r0 = makeRoot()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  const dir = join(r0, 'features/demo')
+  writeFileSync(join(dir, '10-questions.md'), QUESTIONS_CLEAR)
+  writeFileSync(join(dir, '10-prd.md'), PRD)
+  const d = run(['gate', 'demo', '10-prd', '--dry-run', '--root', r0])
+  assert.equal(d.code, 0, d.out)
+  assert.match(d.out, /\(dry-run\) 10-prd: XANH/)
+  assert.match(d.out, /attempt 1\/3 sẽ được dùng khi chạy thật/)
+  assert.ok(!existsSync(join(dir, '.evidence')), 'dry-run xanh cũng không được ghi evidence')
+
+  const g = run(['gate', 'demo', '10-prd', '--root', r0])
+  assert.equal(g.code, 0, g.out)
+  assert.match(g.out, /attempt 1\/3/, 'dry-run không đốt lượt — lần chạy thật đầu tiên vẫn là 1/3')
 })

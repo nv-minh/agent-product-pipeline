@@ -44,11 +44,16 @@ const USAGE = `Usage: pp <command> [options]
 Commands:
   init <feature> [--size S|M] [--type feature|bugfix|change] [--from <feature-cũ>]
                                        Tạo blackboard mới; --type chọn pipeline theo loại việc,
-                                       --from (chỉ change) liên kết feature gốc cho impact analysis
+                                       --from <feature-cũ> (tuỳ chọn, chỉ có nghĩa với --type change)
+                                       liên kết feature gốc cho impact analysis; không truyền thì
+                                       change chạy không truy nguồn gốc
   status <feature>                    In stage kế tiếp và lý do
-  gate <feature> <stage> [--tier t1]  Chạy gate T1 cho một stage: exit 0 xanh, 1 đỏ. --tier chỉ
+  gate <feature> <stage> [--tier t1] [--dry-run]
+                                       Chạy gate T1 cho một stage: exit 0 xanh, 1 đỏ. --tier chỉ
                                        nhận t1 (T2 chạy bằng review-prompt/review-record); giá trị
-                                       khác bị từ chối exit 2 thay vì âm thầm chạy T1
+                                       khác bị từ chối exit 2 thay vì âm thầm chạy T1. --dry-run
+                                       chạy đúng tập check nhưng KHÔNG ghi sổ: attempts/evidence/
+                                       STATE/audit không đổi — xem artifact có qua không đã
   advance <feature>                   In chỉ thị cho stage kế tiếp (pp không tự gọi LLM)
   guard-write --path <abs> | --stdin  [hook] chặn agent ghi STATE.md/.evidence//pipeline.json
                                        trong features/ (dùng bởi PreToolUse). Chặn = exit 2 + stderr
@@ -131,7 +136,7 @@ const SHARED_FLAGS = ['root', 'workspace']
 const FLAGS_OF_COMMAND = {
   init: ['size', 'type', 'from'],
   status: [],
-  gate: ['tier'],
+  gate: ['tier', 'dry-run'],
   advance: [],
   'guard-write': ['path', 'stdin'],
   'guard-stop': [],

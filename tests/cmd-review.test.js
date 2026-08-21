@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { readState, writeState } from '../lib/state.js'
-import { passT1Prd, PRD, QUESTIONS } from './helpers.js'
+import { passT1Prd, PRD, QUESTIONS, runSplit } from './helpers.js'
 
 const PP = new URL('../bin/pp', import.meta.url).pathname
 const REPO = new URL('../', import.meta.url).pathname
@@ -282,4 +282,27 @@ test('R3: gate ["t2"] + log t1 đỏ trên đĩa thì review-record KHÔNG thể
   writeVerdict(r0, v, [])
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
   assert.equal(readState(f).stages['10-prd'].status, 'done')
+})
+
+// N11 (lab 2026-08-21): phát phiếu mới thu hồi phiếu cũ — việc đó từng diễn ra
+// im lặng (ghi đè pending.json). Người gọi phát prompt cho reviewer A rồi chạy
+// lại review-prompt thì prompt trong tay A thành giấy vụn, mà không ai biết tới
+// lúc verdict của A bị chặn "sai nonce". Lần gọi thứ hai phải CÔNG BỐ thu hồi —
+// và ra stderr, vì stdout là prompt được copy NGUYÊN VĂN cho reviewer.
+test('N11: review-prompt lần 2 công bố thu hồi phiếu cũ (stderr), prompt vẫn nguyên vẹn', () => {
+  const r0 = root()
+  run(['init', 'demo', '--size', 'S', '--root', r0])
+  passT1Prd(r0)
+  assert.equal(run(['review-prompt', 'demo', '10-prd', '--root', r0]).code, 0)
+  const pending = join(r0, 'features/demo/.review/10-prd.pending.json')
+  const oldNonce = JSON.parse(readFileSync(pending, 'utf8')).nonce
+
+  const s = runSplit(['review-prompt', 'demo', '10-prd', '--root', r0])
+  assert.equal(s.code, 0)
+  assert.match(s.stderr, /đã bị thu hồi/, `stderr phải công bố thu hồi, nhận:\n${s.stderr}`)
+  assert.doesNotMatch(s.stdout, /thu hồi/, 'thông điệp vận hành không được lẫn vào prompt')
+  assert.match(s.stdout, /=== NONCE ===/, 'stdout vẫn là prompt + hướng dẫn nonce')
+
+  const now = JSON.parse(readFileSync(pending, 'utf8'))
+  assert.notEqual(now.nonce, oldNonce, 'phiếu mới phải phát nonce mới')
 })
