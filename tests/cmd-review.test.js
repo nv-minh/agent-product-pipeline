@@ -16,11 +16,30 @@ function run(args) {
 function root() {
   const d = mkdtempSync(join(tmpdir(), 'pp-r-'))
   writeFileSync(join(d, 'constitution.md'), '# Constitution\nĐiều 1 — Đơn giản\n')
+  writeFileSync(join(d, '.pp-root'), 'marker (C4 — pp init đòi file này)\n')
   for (const sub of ['schema', 'templates', 'rubric']) {
     mkdirSync(join(d, sub), { recursive: true })
     cpSync(join(REPO, sub), join(d, sub), { recursive: true })
   }
   return d
+}
+
+// A3: verdict phải mang nonce của phiếu review đang mở. Mint LẠI mỗi lần vì nonce
+// dùng một lần rồi bị tiêu thụ. `review-prompt` có thể từ chối hợp lệ (T1 chưa
+// xanh, thiếu artifact...) — khi đó ghi verdict KHÔNG nonce, vì chính các test đó
+// đang kiểm rằng review-record từ chối với lý do gần nhất, không phải lỗi nonce.
+function writeVerdict(r0, v, findings, { feature = 'demo', stage = '10-prd' } = {}) {
+  run(['review-prompt', feature, stage, '--root', r0])
+  let nonce = null
+  try {
+    const p = join(r0, 'features', feature, '.review', `${stage}.pending.json`)
+    nonce = JSON.parse(readFileSync(p, 'utf8')).nonce
+  } catch { /* không có phiếu — chủ ý, xem chú thích trên */ }
+  const body = {}
+  if (findings !== undefined) body.findings = findings
+  if (nonce !== null) body.nonce = nonce
+  writeFileSync(v, JSON.stringify(body))
+  return v
 }
 
 test('review-prompt chứa artifact, rubric và constitution', () => {
@@ -39,10 +58,9 @@ test('verdict có finding high thì exit 1 và state = failed', () => {
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
   passT1Prd(r0)
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [
     { criterion: 'AC đo được', verdict: 'fail', severity: 'high', evidence: 'AC-1-1 mơ hồ', fix: 'viết lại EARS' },
-  ] }))
+  ])
   const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(r.code, 1)
   assert.match(r.out, /AC-1-1 mơ hồ/)
@@ -53,10 +71,9 @@ test('chỉ có finding medium thì exit 0', () => {
   run(['init', 'demo', '--size', 'S', '--root', r0])
   const f = join(r0, 'features/demo')
   passT1Prd(r0)
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [
     { criterion: 'x', verdict: 'fail', severity: 'medium', evidence: 'e', fix: 'f' },
-  ] }))
+  ])
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
 })
 
@@ -123,12 +140,11 @@ test('review-record: findings rỗng hoặc vắng mặt thì coi là PASS, exit
   const f = join(r0, 'features/demo')
   passT1Prd(r0)
 
-  const v1 = join(f, 'empty.json')
-  writeFileSync(v1, JSON.stringify({ findings: [] }))
+  const v1 = writeVerdict(r0, join(f, 'empty.json'), [])
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v1, '--root', r0]).code, 0)
 
-  const v2 = join(f, 'none.json')
-  writeFileSync(v2, JSON.stringify({}))
+  // `findings` vắng mặt hẳn (chỉ có nonce) vẫn là PASS không finding.
+  const v2 = writeVerdict(r0, join(f, 'none.json'), undefined)
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v2, '--root', r0]).code, 0)
 })
 
@@ -142,8 +158,7 @@ test('review-record: human bị xoá trên nhánh PASS — re-review revoke appr
   s.stages['10-prd'] = { ...s.stages['10-prd'], human: 'approved' }
   writeState(f, s)
 
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [] }))
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [])
   run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(readState(f).stages['10-prd'].human, undefined)
 })
@@ -158,10 +173,9 @@ test('review-record: human bị xoá trên nhánh FAIL', () => {
   s.stages['10-prd'] = { ...s.stages['10-prd'], human: 'approved' }
   writeState(f, s)
 
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [
     { criterion: 'x', verdict: 'fail', severity: 'high', evidence: 'e', fix: 'f' },
-  ] }))
+  ])
   run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(readState(f).stages['10-prd'].human, undefined)
 })
@@ -209,8 +223,7 @@ test('T1 xanh rồi T2 xanh thì stage mới done', () => {
   run(['init', 'demo', '--size', 'S', '--root', r0])
   passT1Prd(r0)
   const f = join(r0, 'features/demo')
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [] }))
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [])
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
   const st = readState(f).stages['10-prd']
   assert.equal(st.status, 'done')
@@ -227,10 +240,11 @@ test('bẻ log evidence T1 thì lần đánh giá kế tiếp coi stage là chư
   run(['init', 'demo', '--size', 'S', '--root', r0])
   passT1Prd(r0)
   const f = join(r0, 'features/demo')
+  // Mint phiếu TRƯỚC khi bẻ log: sau khi bẻ, review-prompt sẽ từ chối (T1 không
+  // còn xanh) nên sẽ không có nonce nào — mà điều đang kiểm ở đây là review-record
+  // tự nó phải chặn, kể cả khi verdict mang nonce hợp lệ.
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [])
   appendFileSync(join(f, '.evidence/10-prd.t1.log'), 'Exit status: 1\n')
-
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [] }))
   const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.equal(r.code, 1)
   assert.notEqual(readState(f).stages['10-prd'].status, 'done')
@@ -255,16 +269,17 @@ test('R3: gate ["t2"] + log t1 đỏ trên đĩa thì review-record KHÔNG thể
   cfg.stages['10-prd'].gate = ['t2']
   writeFileSync(pj, JSON.stringify(cfg, null, 2))
 
-  const v = join(f, 'verdict.json')
-  writeFileSync(v, JSON.stringify({ findings: [] }))
+  const v = writeVerdict(r0, join(f, 'verdict.json'), [])
   const r = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.match(r.out, /CHƯA done/)
   assert.match(r.out, /t1/)
   assert.notEqual(readState(f).stages['10-prd'].status, 'done')
 
-  // Sửa cho T1 xanh thật rồi review lại thì mới được done
+  // Sửa cho T1 xanh thật rồi review lại thì mới được done. Phải mint phiếu MỚI:
+  // nonce vòng trước đã bị tiêu thụ ở lần review-record trên.
   writeFileSync(join(f, '10-questions.md'), QUESTIONS)
   assert.equal(run(['gate', 'demo', '10-prd', '--root', r0]).code, 0)
+  writeVerdict(r0, v, [])
   assert.equal(run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0]).code, 0)
   assert.equal(readState(f).stages['10-prd'].status, 'done')
 })

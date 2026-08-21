@@ -162,15 +162,26 @@ test('F3: gate:["t2"] viết tay + artifact VẮNG MẶT không tới được d
   cfg.stages['10-prd'].gate = ['t2']
   writeFileSync(join(dir, 'pipeline.json'), JSON.stringify(cfg, null, 2))
 
+  // A3 chặn SỚM HƠN F3: không có artifact thì `review-prompt` từ chối (không có
+  // gì để reviewer đọc), nên không phiếu nào được phát, nên `review-record` không
+  // nhận verdict. Tính chất F3 vẫn được kiểm nguyên vẹn ở ba dòng cuối: stage
+  // không tới được `done` và `pp approve` vẫn từ chối, nêu đích danh artifact vắng
+  // mặt — chỉ là nay có thêm một tầng chặn nữa đứng trước.
   const v = verdictFile(r0, 'demo', '10-prd', [])
   const rr = run(['review-record', 'demo', '10-prd', '--verdict', v, '--root', r0])
   assert.doesNotMatch(rr.out, /✓ 10-prd: done/)
-  assert.match(rr.out, /⏳ 10-prd: CHƯA done/)
-  // ghi chú phải NÊU ĐÍCH DANH việc artifact vắng mặt, không nói "đã bị sửa"
-  assert.match(rr.out, /artifact 10-prd\.md KHÔNG CÓ trên đĩa/)
+  assert.equal(rr.code, 1)
+  assert.match(rr.out, /chưa có phiếu review đang mở/)
 
-  assert.notEqual(readState(dir).stages['10-prd'].status, 'done')
-  assert.equal(run(['approve', 'demo', '10-prd', '--root', r0]).code, 1)
+  // Không có bản ghi tier nào được ghi cả — mạnh hơn "có ghi nhưng không done".
+  assert.notEqual(readState(dir).stages?.['10-prd']?.status, 'done')
+  const ap = run(['approve', 'demo', '10-prd', '--root', r0])
+  assert.equal(ap.code, 1)
+  // A4 làm `approve` kiểm trạng thái theo danh sách trắng (`done`) TRƯỚC khi hỏi
+  // `stageDone`, nên với stage chưa có bản ghi nào thông báo dừng ở trạng thái.
+  // Ghi chú "artifact … KHÔNG CÓ trên đĩa" chỉ tới được khi stage đang `done` mà
+  // artifact biến mất — trường hợp đó do test kế tiếp kiểm.
+  assert.match(ap.out, /không duyệt được/)
 })
 
 test('F3: xoá artifact của một stage đang done thì stage rơi khỏi done', () => {

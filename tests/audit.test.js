@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { run, runSplit, makeRoot, passT1Prd, verdictFile } from './helpers.js'
+import { run, runSplit, makeRoot, passT1Prd, verdictFile, PRD } from './helpers.js'
 import { writeState } from '../lib/state.js'
 import { readAudit } from '../lib/audit.js'
 
@@ -70,9 +70,13 @@ test('override: ghi event có reason VÀ vẫn ghi lessons/ (audit mirror, khôn
 test('unblock ghi event có reason; approve ghi event actor human', () => {
   const root = makeRoot()
   run(['init', 'demo', '--size', 'S', '--root', root])
-  run(['override', 'demo', '10-prd', '--reason', 'thử', '--root', root])
+  // A4: `unblock` chỉ nhận stage `blocked`/`failed`, nên phải đẩy stage tới blocked
+  // bằng gate đỏ thật thay vì override (override đưa stage sang `done`, và
+  // override → unblock chính là chuỗi A4 đã bịt).
+  writeFileSync(join(root, 'features/demo/10-prd.md'), PRD) // thiếu 10-questions.md → T1 đỏ
+  for (let i = 0; i < 3; i++) run(['gate', 'demo', '10-prd', '--root', root])
   const un = run(['unblock', 'demo', '10-prd', '--reason', 'đã sửa xong luật', '--root', root])
-  assert.equal(un.code, 0)
+  assert.equal(un.code, 0, un.out)
   const [ue] = auditLines(root).filter((x) => x.event === 'unblock')
   assert.equal(ue.actor, 'human')
   assert.equal(ue.reason, 'đã sửa xong luật')

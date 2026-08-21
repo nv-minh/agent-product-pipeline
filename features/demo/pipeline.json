@@ -1,0 +1,65 @@
+{
+  "feature": "demo",
+  "type": "feature",
+  "size": "M",
+  "stages": {
+    "10-prd": {
+      "enabled": true,
+      "skills": [
+        "prd-epic",
+        "userstory",
+        "ac"
+      ],
+      "inputs": [
+        "00-brief.md",
+        "refs/source.md?",
+        "../../constitution.md"
+      ],
+      "outputs": [
+        "10-questions.md",
+        "10-prd.md"
+      ],
+      "gate": [
+        "t1",
+        "t2"
+      ],
+      "human": true
+    },
+    "20-ux": {
+      "enabled": false,
+      "skills": [
+        "user-flow",
+        "wireframe-ascii"
+      ],
+      "inputs": [
+        "10-prd.md"
+      ],
+      "outputs": [
+        "20-ux.md"
+      ],
+      "gate": [
+        "t1"
+      ],
+      "human": false
+    },
+    "40-testplan": {
+      "enabled": true,
+      "skills": [
+        "test-cases",
+        "test-checklist"
+      ],
+      "inputs": [
+        "10-prd.md",
+        "30-contract.md?"
+      ],
+      "outputs": [
+        "40-testplan.md"
+      ],
+      "gate": [
+        "t1",
+        "t2"
+      ],
+      "human": false
+    }
+  }
+}

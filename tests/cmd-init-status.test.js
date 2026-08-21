@@ -18,6 +18,7 @@ function run(args, opts = {}) {
 function tmpRoot() {
   const d = mkdtempSync(join(tmpdir(), 'pp-root-'))
   writeFileSync(join(d, 'constitution.md'), '# Constitution\n')
+  writeFileSync(join(d, '.pp-root'), 'marker (C4 — pp init đòi file này)\n')
   return d
 }
 

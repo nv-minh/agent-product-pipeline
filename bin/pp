@@ -10,6 +10,8 @@ import { reviewPromptCmd, reviewRecordCmd } from '../lib/commands/review.js'
 import { approveCmd, overrideCmd, unblockCmd } from '../lib/commands/human.js'
 import { reportCmd } from '../lib/commands/report.js'
 import { usageSyncCmd } from '../lib/commands/usage.js'
+import { doctorCmd } from '../lib/commands/doctor.js'
+import { badFeatureName } from '../lib/commands/precond.js'
 import { parseArgs } from '../lib/args.js'
 
 const COMMANDS = {
@@ -26,14 +28,27 @@ const COMMANDS = {
   unblock: unblockCmd,
   report: reportCmd,
   'usage-sync': usageSyncCmd,
-} // Task 14 — task code cuối cùng: mọi lệnh của `pp` đã đăng ký xong ở đây
+  doctor: doctorCmd,
+}
+
+// Mọi lệnh nhận <feature> làm positional đầu tiên (kể cả tuỳ chọn như report,
+// guard-stop) — dùng cho kiểm tên tập trung ở main(). guard-write không nhận
+// positional (chỉ --path/--stdin) nên không nằm đây.
+const TAKES_FEATURE = new Set([
+  'init', 'status', 'gate', 'advance', 'review-prompt', 'review-record',
+  'approve', 'override', 'unblock', 'report', 'usage-sync', 'guard-stop',
+])
 
 const USAGE = `Usage: pp <command> [options]
 
 Commands:
-  init <feature> [--size S|M]         Tạo blackboard cho feature mới
+  init <feature> [--size S|M] [--type feature|bugfix|change] [--from <feature-cũ>]
+                                       Tạo blackboard mới; --type chọn pipeline theo loại việc,
+                                       --from (chỉ change) liên kết feature gốc cho impact analysis
   status <feature>                    In stage kế tiếp và lý do
-  gate <feature> <stage> [--tier t1]  Chạy gate cho một stage: exit 0 xanh, 1 đỏ
+  gate <feature> <stage> [--tier t1]  Chạy gate T1 cho một stage: exit 0 xanh, 1 đỏ. --tier chỉ
+                                       nhận t1 (T2 chạy bằng review-prompt/review-record); giá trị
+                                       khác bị từ chối exit 2 thay vì âm thầm chạy T1
   advance <feature>                   In chỉ thị cho stage kế tiếp (pp không tự gọi LLM)
   guard-write --path <abs> | --stdin  [hook] chặn agent ghi STATE.md/.evidence//pipeline.json
                                        trong features/ (dùng bởi PreToolUse). Chặn = exit 2 + stderr
@@ -53,24 +68,42 @@ Commands:
                                        cũng ghi vào lessons/<stage>.md
   report [<feature>]                  In bảng stage/status/attempts/override cho một hoặc mọi
                                        feature; nêu bật stage bị override ≥3 lần
-  usage-sync <feature> [--since <iso>] [--transcripts DIR]
+  doctor                              Kiểm tầng thi hành: script hook, luật guard, và hook đã
+                                       được đăng ký ở settings.json nào chưa. exit 1 nếu có lỗi
+  usage-sync <feature> [--since <iso>] [--transcripts DIR] [--repos DIR,DIR]
                                        Khai thác transcript Claude Code (~/.claude/projects)
                                        lấy token usage thật, gán về feature/theo stage; idempotent.
-                                       Thiếu transcript = thiếu dữ liệu (exit 0), không phải lỗi
+                                       --repos khai thêm các repo code (backend/web) — phiên viết
+                                       code sống ở dir transcript của repo ĐÓ, không phải của
+                                       product-repo. Thiếu transcript = thiếu dữ liệu (exit 0)
 
 Options:
-  --root DIR   Gốc repo pinnacle-product (mặc định: tự dò lên từ cwd)
-  --help    In trợ giúp này
+  --root DIR       Gốc product-repo (mặc định: tự dò lên từ cwd)
+  --workspace DIR  Gốc để giải nghĩa đường dẫn được CITE trong artifact
+                   (mặc định: thư mục cha của --root, tức layout product-repo
+                   nằm cạnh các repo code). Cũng đọc từ $PP_WORKSPACE
+  --help           In trợ giúp này
 `
 
-// Dò lên từ cwd tìm constitution.md để xác định gốc repo. KHÔNG throw khi
-// không tìm thấy — trả về null. Lý do: findRoot chạy cho MỌI lệnh (kể cả
-// những lệnh sau này như `pp guard-write` được một PreToolUse hook gọi trên
-// từng file Write/Edit ở BẤT KỲ project nào trên máy người dùng). Nếu throw
-// ở đây, chạy `pp guard-write` ngoài repo này sẽ làm cả hook đó chặn mọi
-// chỉnh sửa file trong mọi project khác — hỏng toàn bộ toolchain của họ.
-// Vì vậy: "không có root" không phải là lỗi ở tầng này; từng lệnh cần root
-// tự kiểm tra `root` và báo lỗi rõ ràng nếu cần.
+// C4 — "GỐC REPO LÀ GÌ" từng chỉ có một câu trả lời: thư mục có constitution.md.
+// Nhưng constitution.md là quy ước CHUNG (GitHub Spec Kit dùng đúng tên này) —
+// đứng trong một repo Spec Kit bất kỳ mà gõ `pp init` là scaffold nguyên bộ
+// features/ vào repo của người ta. `.pp-root` là marker RIÊNG của pp (check-in
+// tại gốc product-repo); constitution.md giữ vai trò fallback để clone cũ và
+// các lệnh chỉ-đọc vẫn chạy. Riêng `pp init` (lệnh scaffold duy nhất) đòi đích
+// danh `.pp-root` — xem initCmd.
+function isPpRoot(dir) {
+  return existsSync(join(dir, '.pp-root')) || existsSync(join(dir, 'constitution.md'))
+}
+
+// Dò lên từ cwd tìm marker gốc repo. KHÔNG throw khi không tìm thấy — trả về
+// null. Lý do: findRoot chạy cho MỌI lệnh (kể cả những lệnh sau này như
+// `pp guard-write` được một PreToolUse hook gọi trên từng file Write/Edit ở
+// BẤT KỲ project nào trên máy người dùng). Nếu throw ở đây, chạy
+// `pp guard-write` ngoài repo này sẽ làm cả hook đó chặn mọi chỉnh sửa file
+// trong mọi project khác — hỏng toàn bộ toolchain của họ. Vì vậy: "không có
+// root" không phải là lỗi ở tầng này; từng lệnh cần root tự kiểm tra `root`
+// và báo lỗi rõ ràng nếu cần.
 function findRoot(args) {
   const { flags } = parseArgs(args)
   // --root không có giá trị (token cuối, hoặc theo sau là flag khác) thì
@@ -79,10 +112,63 @@ function findRoot(args) {
   if (typeof flags.root === 'string') return resolve(flags.root)
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'constitution.md'))) return dir
+    if (isPpRoot(dir)) return dir
     dir = resolve(dir, '..')
   }
   return null
+}
+
+// FINDING (review 8c825c9..44c1ecb): một flag GÕ SAI TÊN đi qua cả CLI mà
+// không ai từ chối — `pp init x --type change --form old-a` exit 0 rồi lặng lẽ
+// bỏ đúng cái liên kết vừa được yêu cầu. Allowlist chung cho cả CLI (không
+// per-command): rẻ, và đủ bắt lớp lỗi đánh máy. Flag đúng tên nhưng vô nghĩa
+// với lệnh đó vẫn là việc của từng lệnh (init đã nói `--from` chỉ có nghĩa với
+// `--type change`) — đó là hai lớp khác nhau, không thay thế nhau.
+const KNOWN_FLAGS = new Set([
+  'from', 'path', 'reason', 'repos', 'root', 'since', 'size', 'stdin', 'tier',
+  'transcripts', 'type', 'verdict', 'workspace',
+])
+
+function badFlag(args) {
+  const unknown = Object.keys(parseArgs(args).flags).filter((f) => !KNOWN_FLAGS.has(f))
+  if (!unknown.length) return false
+  process.stdout.write(
+    `pp: không biết flag ${unknown.map((f) => `--${f}`).join(', ')}.\n` +
+    `Flag hợp lệ: ${[...KNOWN_FLAGS].sort().map((f) => `--${f}`).join(' ')}\n` +
+    'Gõ sai tên flag KHÔNG được ngầm coi là "không truyền flag" — nó làm mất ' +
+    'chính điều bạn vừa yêu cầu mà không ai biết.\n',
+  )
+  return true
+}
+
+// C3 — `--root` TỪNG ĐƯỢC TIN KHÔNG KIỂM, KHÁC HẲN NHÁNH DÒ CWD NGAY TRÊN.
+// Tái lập được: `pp init foo --root /một/thư/mục/rỗng` scaffold nguyên cây
+// features/ vào đó, exit 0 — một lần gõ nhầm đường dẫn là rác mọc ở chỗ
+// không ai ngờ. Đối số tường minh mà sai thì phải chết to (exit 2), không
+// được âm thầm làm theo.
+function badExplicitRoot(args) {
+  const { flags } = parseArgs(args)
+  if (typeof flags.root !== 'string') return false
+  const r = resolve(flags.root)
+  if (isPpRoot(r)) return false
+  process.stdout.write(
+    `pp: --root ${flags.root} không phải gốc product-repo — không thấy .pp-root hay constitution.md ở ${r}.\n` +
+    'Kiểm tra lại đường dẫn. Nếu đây đúng là product-repo mới, tạo marker: touch <root>/.pp-root\n',
+  )
+  return true
+}
+
+// Gốc để giải nghĩa đường dẫn được CITE trong artifact (trụ cột 3, §6). Mặc
+// định là thư mục cha của root — đúng layout A (product-repo nằm cạnh
+// backend-repo/web-repo) và giữ nguyên hành vi cũ. Cho phép ghi đè vì layout đó
+// không phải phổ quát: clone product-repo vào một chỗ khác thì mọi cite bị kiểm
+// ngược vào thư mục cha ngẫu nhiên đó, biến gate chống ảo giác thành đỏ oan.
+// Cùng quy tắc "flag không có giá trị thì bỏ qua" như --root.
+function findWorkspace(args, root) {
+  const { flags } = parseArgs(args)
+  if (typeof flags.workspace === 'string') return resolve(flags.workspace)
+  if (process.env.PP_WORKSPACE) return resolve(process.env.PP_WORKSPACE)
+  return root ? resolve(root, '..') : null
 }
 
 async function main(argv) {
@@ -96,7 +182,20 @@ async function main(argv) {
     process.stdout.write(`pp: không biết lệnh "${cmd}"\n\n${USAGE}`)
     return 2
   }
-  return await handler(rest, { root: findRoot(rest) })
+  // C2: kiểm tên feature Ở ĐÂY, một chỗ cho mọi lệnh — một tên mang "/" hay
+  // ".." không được chạm tới bất kỳ join() nào trong handler. Lệnh có feature
+  // TUỲ CHỌN (report, guard-stop) chỉ kiểm khi có; thiếu hẳn thì handler tự in
+  // usage của nó (thiếu đối số là chuyện khác với đối số độc hại).
+  if (TAKES_FEATURE.has(cmd)) {
+    const feature = parseArgs(rest).positional[0]
+    if (feature !== undefined && badFeatureName(feature)) return 2
+  }
+  // Flag lạ chết TRƯỚC mọi thứ khác: nếu người dùng gõ sai tên flag thì mọi
+  // suy luận sau đó (kể cả --root) đang dựa trên một dòng lệnh khác dòng họ nghĩ.
+  if (badFlag(rest)) return 2
+  if (badExplicitRoot(rest)) return 2
+  const root = findRoot(rest)
+  return await handler(rest, { root, workspace: findWorkspace(rest, root) })
 }
 
 main(process.argv.slice(2))

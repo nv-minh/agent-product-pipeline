@@ -119,9 +119,14 @@ Over-engineer và test hời hợt là **cùng một hành vi**: khi không ch�
 | 50 | security | on | **skill cần xây** | `50-security.md` | — |
 | 60 | dev | on | **orchestrator** — pipeline chỉ bàn giao | `60-handoff.md` + code + PR | — |
 | 70 | ops | off | **skill cần xây** | `70-ops.md` | — |
-| 90 | archive | on | `pp archive` | `_archive/…` | — |
+| 90 | archive | on | `pp archive` *(lệnh chưa implement — test plan đã có ở features/archive-command)* | `_archive/…` | — |
 
 Chỉ **2 human gate**: sau `10-prd` (sai ở đây hỏng toàn bộ hạ nguồn) và sau `30-contract` (đổi contract sau khi BE đã code là đắt nhất). AIDLC dùng 4 gate — quá nhiều cho người làm một mình.
+
+*(Cập nhật 2026-08-20: bảng trên là pipeline type `feature`. Hai type mới —
+`bugfix`: 05-diagnosis → 15-fixplan → 40-regression, và `change`: 05-impact →
+10-prd delta → 40-testplan — xem
+[2026-08-20-pp-bugfix-pp-change-design.md](2026-08-20-pp-bugfix-pp-change-design.md).)*
 
 ### 4.1 `pipeline.json`
 
@@ -513,7 +518,7 @@ Tuyệt đối **không** báo thay đổi qua chat rồi để worker tự đi�
 | Gate chặn oan | 1 gate bị override ≥3 lần | sửa luật gate |
 | Reviewer quá khắt | cùng stage >3 vòng ở nhiều feature | hạ severity threshold / viết lại rubric |
 | Schema lệch dev-ba-kit | T1 đỏ dù artifact thật sự tốt | thêm `pp normalize`, **không** sửa dev-ba-kit |
-| Blackboard phình | `features/` >15 thư mục sống | `pp archive` |
+| Blackboard phình | `features/` >15 thư mục sống | `pp archive` *(chưa implement — tạm chuyển tay vào features/_archive/)* |
 | `lessons/` phình | 1 file >20 dòng | gộp lại |
 | **Nghi thức quá nặng** | phần phi-dev 1 feature **>30 phút** | **cắt stage** |
 

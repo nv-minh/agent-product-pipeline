@@ -1,0 +1,89 @@
+# D1 — KHÔNG GÌ TỰ CHẠY BỘ TEST LÀ GAP ĐÒN GÁNH CAO NHẤT CỦA REPO NÀY.
+# constitution.md Điều 8 tự thừa nhận "repo này không có hook — tự giữ kỷ luật".
+# Một bộ 400+ test với coverage ~99% mà không gì tự chạy thì kỷ luật ấy chỉ tồn
+# tại khi người ta nhớ. File này làm nó thành dữ kiện, đúng tinh thần Điều 2.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Huỷ lần chạy cũ khi có push mới trên cùng branch — bộ test mất ~2 phút và
+# không có gì đáng giá ở kết quả của một commit đã bị thay thế.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # D2 — lane rẻ chạy TRƯỚC: sự cố thực tế đã có (một cặp backtick chèn nhầm
+  # vào template literal của bin/pp làm 241/379 test đỏ) mà `node --check`
+  # bắt trong <1 giây, còn bộ test cần cả phút. Lint tách khỏi matrix test:
+  # kết luận của biome không phụ thuộc version Node.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Zero RUNTIME dependency
+        # Zero-dep là quyết định kiến trúc cho phần CHẠY THẬT (bin/ + lib/):
+        # pp phải cài được bằng clone + node, không cần npm install.
+        # devDependencies là dụng cụ phát triển (linter), không đi vào runtime
+        # — cho phép, nhưng runtime deps phải là RỖNG tuyệt đối.
+        run: |
+          node -e '
+            const p = require("./package.json")
+            const deps = Object.keys(p.dependencies ?? {})
+            if (deps.length > 0) {
+              console.error("package.json có runtime dependency: " + deps.join(", "))
+              process.exit(1)
+            }
+            console.log("✓ zero runtime dependency")
+          '
+      - name: Syntax check (node --check)
+        run: |
+          node --check bin/pp
+          git ls-files 'lib/**/*.js' 'tests/*.js' 'skills/**/*.mjs' | xargs -n1 node --check
+          echo "✓ mọi file parse được"
+      - name: Hook scripts parse được
+        run: |
+          bash -n hooks/pre-tool-use.sh
+          bash -n hooks/stop.sh
+      - name: biome lint
+        run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json khai `engines: node >=18`. Nếu đã khai thì phải kiểm —
+        # test spawn `node bin/pp` hàng trăm lần nên bất kỳ lệch API nào giữa
+        # các dòng Node đều lộ ra ở đây, không phải trên máy người dùng.
+        node: ['18', '20', '22']
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Bộ test không cần dependency nào, nhưng cài để chắc rằng lockfile
+      # còn cài được trên cả ba dòng Node (đây là một phần của hợp đồng
+      # "clone về là chạy").
+      - run: npm ci
+
+      - name: npm test
+        run: npm test
+
+      - name: pp doctor
+        # Tầng thi hành (§5.3) nằm ngoài code — nó chỉ chạy nếu .claude/settings.json
+        # đăng ký hai script trong hooks/. Chạy doctor ở CI để việc xoá/làm hỏng
+        # file đăng ký đó bị bắt ngay, thay vì âm thầm tắt cả tầng chặn.
+        run: node bin/pp doctor

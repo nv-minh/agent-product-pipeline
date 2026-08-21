@@ -1,0 +1,15 @@
+{
+  "requiredHeadings": ["## Delta", "## User stories", "## Out of scope", "## Rủi ro"],
+  "riskChecklist": [
+    "migrate dữ liệu cũ",
+    "ai không được phép",
+    "thao tác đồng thời",
+    "mạng lỗi hoặc offline",
+    "giới hạn kích thước và phân trang",
+    "i18n và timezone",
+    "hiệu năng khi dữ liệu lớn",
+    "rollback"
+  ],
+  "minQuestions": 8,
+  "deltaChecklist": ["ADDED", "MODIFIED", "REMOVED"]
+}

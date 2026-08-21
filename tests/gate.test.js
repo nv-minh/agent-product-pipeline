@@ -99,7 +99,7 @@ test('FINDING 6: human trường nên bị xóa khi chạy lại gate', () => {
   state.stages['10-prd'].human = 'approved'
   writeState(d, state)
 
-  const r = runT1(d, config, state, '10-prd', [
+  runT1(d, config, state, '10-prd', [
     { name: 'check', run: () => ({ name: 'check', ok: true, messages: [] }) },
   ])
   const s = readState(d)
@@ -117,7 +117,7 @@ test('FINDING 6b: human trường bị xóa ngay cả khi gate đỏ', () => {
   state.stages['10-prd'].human = 'approved'
   writeState(d, state)
 
-  const r = runT1(d, config, state, '10-prd', [
+  runT1(d, config, state, '10-prd', [
     { name: 'check', run: () => ({ name: 'check', ok: false, messages: ['failed'] }) },
   ])
   const s = readState(d)

@@ -1,0 +1,32 @@
+{
+  "feature": "__FEATURE__",
+  "type": "change",
+  "stages": {
+    "05-impact": {
+      "enabled": true,
+      "skills": [],
+      "inputs": ["00-brief.md", "refs/source.md?", "../../constitution.md"],
+      "outputs": ["05-impact.md"],
+      "gate": ["t1", "t2"],
+      "human": false,
+      "reads_workspace": true
+    },
+    "10-prd": {
+      "enabled": true,
+      "skills": ["prd-epic", "userstory", "ac"],
+      "schema": "10-prd.change",
+      "inputs": ["00-brief.md", "05-impact.md", "../../constitution.md"],
+      "outputs": ["10-questions.md", "10-prd.md"],
+      "gate": ["t1", "t2"],
+      "human": true
+    },
+    "40-testplan": {
+      "enabled": true,
+      "skills": ["test-cases", "test-checklist"],
+      "inputs": ["10-prd.md", "05-impact.md"],
+      "outputs": ["40-testplan.md"],
+      "gate": ["t1", "t2"],
+      "human": false
+    }
+  }
+}

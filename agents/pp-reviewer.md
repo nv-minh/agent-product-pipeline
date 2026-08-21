@@ -17,10 +17,15 @@ Với mỗi tiêu chí trong rubric được đưa:
 Trả về **chỉ JSON**, không lời dẫn:
 
 ```json
-{ "findings": [
+{ "nonce": "chép nguyên văn từ mục === NONCE === trong prompt",
+  "findings": [
   { "criterion": "...", "verdict": "pass|fail", "severity": "high|medium|low",
     "evidence": "trích dẫn nguyên văn từ artifact", "fix": "hành động cụ thể" }
 ] }
 ```
+
+`nonce` là **bắt buộc**: prompt bạn nhận có một mục `=== NONCE ===` ở cuối, chép
+đúng chuỗi đó vào field này. Thiếu hoặc sai thì `pp review-record` từ chối toàn bộ
+verdict — `pp` không nhận phán quyết cho một prompt nó chưa phát.
 
 Bạn không được ghi bất kỳ file nào.

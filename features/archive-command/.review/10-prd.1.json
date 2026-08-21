@@ -1,0 +1,53 @@
+{
+  "v": 1,
+  "ts": "2026-08-20T08:15:30.657Z",
+  "feature": "archive-command",
+  "stage": "10-prd",
+  "seq": 1,
+  "attempt": 1,
+  "verdict_path": ".review-10-prd.json",
+  "verdict": {
+    "findings": [
+      {
+        "criterion": "1. AC đo được",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "AC-1-3: \"IF thư mục `features/_archive/<feature>/` đã tồn tại THE SYSTEM SHALL từ chối archive và trả exit 1 mà không ghi đè bất kỳ file nào của bản đã lưu\" — điều kiện kích hoạt kiểm được bằng existsSync, kết quả quan sát được bằng exit code và bằng việc file cũ không đổi. AC-3-1 nêu thẳng regex `^[a-z0-9][a-z0-9-]*$` nên đo được không cần diễn giải.",
+        "fix": ""
+      },
+      {
+        "criterion": "2. Ranh giới phạm vi rõ",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "`## Out of scope` liệt kê 6 thứ cụ thể đã cân nhắc rồi loại, mỗi thứ kèm lý do riêng, ví dụ \"**Un-archive / restore.** Đưa một feature từ `_archive/` trở lại là thao tác `mv` một dòng khi cần; thêm lệnh cho nó là phình phạm vi (Điều 1).\" Không có mục nào dạng \"những gì không nêu ở trên\".",
+        "fix": ""
+      },
+      {
+        "criterion": "3. Neo vào code thật",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "PRD cite `lib/state.js`, `lib/audit.js`, `lib/commands/report.js`, `lib/commands/guard.js`, `lib/commands/human.js` — tất cả tồn tại. Câu \"không cần: `lib/commands/report.js` và `lib/commands/guard.js` đã bỏ qua `_archive`\" là một khẳng định về code hiện có, kiểm được và đúng.",
+        "fix": ""
+      },
+      {
+        "criterion": "4. Rủi ro được trả lời thực chất",
+        "verdict": "pass",
+        "severity": "medium",
+        "evidence": "Mục \"thao tác đồng thời\" không né: \"lệnh archive song song với `pp gate` cùng feature vẫn có thể mất bản ghi vì `pp` chưa có lock ở đâu cả. Ghi nhận là rủi ro còn mở, không tự khắc phục ở đây.\" Mục \"migrate dữ liệu cũ\" nêu lý do riêng cho feature này (`features/_archive/` hiện rỗng, chỉ có `.gitkeep`) chứ không phải câu dùng được cho feature nào cũng xong.",
+        "fix": ""
+      },
+      {
+        "criterion": "5. Không phình phạm vi",
+        "verdict": "fail",
+        "severity": "medium",
+        "evidence": "US-3 (\"tôi muốn `pp archive` không bao giờ ghi ra ngoài `features/`\") và AC-3-1 không truy được về `00-brief.md`. Brief chỉ yêu cầu ba việc: chuyển thư mục sang `features/_archive/`, chèn mục vào `CHANGELOG.md`, và từ chối feature chưa hoàn tất. Việc validate tên feature xuất hiện lần đầu ở Q10 của `10-questions.md`, không phải từ brief.",
+        "fix": "Hoặc bỏ US-3/AC-3-1 khỏi PRD này và xử lý validate tên feature như một thay đổi ngang cấp cho MỌI lệnh nhận <feature> (đúng chỗ của nó, vì `pp init`/`gate`/`approve` đang có cùng lỗ hổng), hoặc bổ sung một dòng vào `00-brief.md` nêu rõ yêu cầu đó để story có nguồn."
+      }
+    ]
+  },
+  "verdict_sha": "4361b398baa8",
+  "prompt_sha": "16ee14c5b84f",
+  "findings_total": 5,
+  "findings_high": 0,
+  "ok": true
+}

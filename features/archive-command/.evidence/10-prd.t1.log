@@ -1,0 +1,18 @@
+[2026-08-20T11:09:32.478Z]  pp gate archive-command 10-prd
+$ pp-check frontmatter 10-prd.md
+Exit status: 0
+$ pp-check placeholders 10-prd.md
+Exit status: 0
+$ pp-check headings 10-prd.md
+Exit status: 0
+$ pp-check cited-paths 10-prd.md
+Exit status: 0
+$ pp-check ears 10-prd.md
+Exit status: 0
+$ pp-check ids 10-prd.md
+Exit status: 0
+$ pp-check risk-checklist 10-prd.md
+Exit status: 0
+$ pp-check questions 10-prd.md
+Exit status: 0
+RESULT: PASS (t1) — attempt 1/3

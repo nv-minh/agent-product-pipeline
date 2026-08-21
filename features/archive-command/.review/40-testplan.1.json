@@ -1,0 +1,46 @@
+{
+  "v": 1,
+  "ts": "2026-08-20T08:21:18.886Z",
+  "feature": "archive-command",
+  "stage": "40-testplan",
+  "seq": 1,
+  "attempt": 2,
+  "verdict_path": ".review-40-testplan.json",
+  "verdict": {
+    "findings": [
+      {
+        "criterion": "1. Phủ edge case thực chất",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Có biên thật, gắn với input/state cụ thể của lệnh này: rỗng — TC-007 \"features/_archive/ chỉ có .gitkeep, chưa có thư mục demo nào\"; giới hạn — TC-017 \"một ký tự a, tên có dấu gạch ngang giua-ten, tên bắt đầu bằng gạch ngang -dau, tên có chữ hoa Demo, tên rỗng\"; lỗi hạ tầng — TC-018 renameSync thất bại; và biên vị trí file — TC-012 \"dòng mốc nằm ở cuối file, không có dòng nào sau nó\". TC-010 phủ đúng trạng thái nửa vời (\"archive thất bại không được để lại nửa kết quả\").",
+        "fix": ""
+      },
+      {
+        "criterion": "2. Negative case kiểm đúng thứ đáng kiểm",
+        "verdict": "fail",
+        "severity": "high",
+        "evidence": "Bốn case mang type=\"negative\" nhưng KHÔNG nêu hành động sai nào và KHÔNG quan sát một sự từ chối nào — chúng đều mong đợi thành công. TC-005: \"expected: exit 0 — stage disabled không phải stage chưa done, không được chặn archive\". TC-007: \"expected: exit 0 — _archive/ rỗng không được tính là đích đã tồn tại\". TC-012: \"expected: exit 0, mục mới được chèn ngay sau dòng mốc ở cuối file\". TC-014: \"expected: mục CHANGELOG không có dòng override nào\". Theo tiêu chí này, negative case phải \"nêu rõ input/hành động sai và kết quả từ chối/lỗi cụ thể được quan sát\" — không case nào trong bốn case trên làm vậy. Chúng là positive case bị dán nhãn negative để thoả bộ đếm type-ratio của T1.",
+        "fix": "Đổi bốn case đó về type=\"positive\" (chúng đang kiểm đúng thứ đáng kiểm, chỉ sai nhãn), rồi viết negative case THẬT cho AC-1-2/AC-1-3/AC-2-2/AC-2-3 — mỗi case một hành động sai kèm sự từ chối quan sát được. Lưu ý: bốn AC đó có hành vi CHÍNH LÀ từ chối, nên negative case của chúng phải là một dạng sai khác (vd. AC-2-2: CHANGELOG.md không tồn tại hẳn, không chỉ thiếu dòng mốc; AC-1-3: đích tồn tại nhưng là FILE chứ không phải thư mục)."
+      },
+      {
+        "criterion": "3. Precondition đủ để chạy lại được",
+        "verdict": "fail",
+        "severity": "medium",
+        "evidence": "TC-018 precondition: \"features/demo/ có quyền chỉ đọc trên thư mục cha nên renameSync sẽ thất bại\" — không tái lập được đúng kết quả ở mọi nơi: chạy bằng root (mặc định trong nhiều container CI) thì renameSync VẪN thành công dù đã chmod, nên test sẽ đỏ/xanh tuỳ máy chứ không tuỳ code. Các case còn lại nêu đủ trạng thái khởi tạo và không dựa vào trạng thái sót lại từ case khác.",
+        "fix": "Thay cách gây lỗi bằng cách không phụ thuộc uid: đặt đích `features/_archive/demo` là một FILE (không phải thư mục) để renameSync chắc chắn thất bại với ENOTDIR trên mọi hệ, hoặc bỏ TC-018 và ghi rõ 'lỗi hạ tầng khi di chuyển' là hành vi không test tự động."
+      },
+      {
+        "criterion": "4. Phép thử đột biến",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Với mỗi cách implement sai hợp lý đều chỉ ra được test bắt: bỏ sót .usage/ khi di chuyển → TC-002 (\"nội dung byte-for-byte không đổi\" trên cả bốn đường dẫn); ghi CHANGELOG trước khi kiểm status stage → TC-010 (\"CHANGELOG.md không có mục nào được thêm\"); append cuối file thay vì chèn dưới mốc → TC-008 (\"mục mới nằm ngay dưới dòng mốc\"); chèn dưới mục cũ nhất thay vì trên → TC-009 (\"mục mới đứng TRÊN mục cũ\"); ghi đè bản archive cũ → TC-006 (\"noi-dung-cu.md không đổi\"); regex lỡ cho phép chữ hoa → TC-017 (\"Demo ... bị từ chối exit 2\").",
+        "fix": ""
+      }
+    ]
+  },
+  "verdict_sha": "a5476334888b",
+  "prompt_sha": "5d9cb4a63583",
+  "findings_total": 4,
+  "findings_high": 1,
+  "ok": false
+}

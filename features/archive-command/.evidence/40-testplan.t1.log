@@ -1,0 +1,18 @@
+[2026-08-20T11:14:22.462Z]  pp gate archive-command 40-testplan
+$ pp-check frontmatter 40-testplan.md
+Exit status: 0
+$ pp-check placeholders 40-testplan.md
+Exit status: 0
+$ pp-check headings 40-testplan.md
+Exit status: 0
+$ pp-check cited-paths 40-testplan.md
+Exit status: 0
+$ pp-check traceability 40-testplan.md
+Exit status: 0
+$ pp-check tc-schema 40-testplan.md
+Exit status: 0
+$ pp-check type-ratio 40-testplan.md
+Exit status: 0
+$ pp-check edge-cases 40-testplan.md
+Exit status: 0
+RESULT: PASS (t1) — attempt 2/3

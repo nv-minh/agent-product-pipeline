@@ -24,7 +24,7 @@ test('vòng đời đầy đủ: init → artifact → T1 → T2 → approve →
   const s0 = run(['status', 'demo', '--root', root])
   assert.equal(s0.code, 0)
   assert.match(s0.out, /stage kế tiếp : 10-prd/)
-  assert.match(s0.out, /hành động     : run/)
+  assert.match(s0.out, /hành động {5}: run/)
 
   // 3. advance in chỉ thị, có nêu tier bắt buộc
   const a0 = run(['advance', 'demo', '--root', root])

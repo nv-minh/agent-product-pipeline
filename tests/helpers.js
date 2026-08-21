@@ -3,7 +3,7 @@
 // test có thể đi qua ĐƯỜNG XANH của toàn bộ vòng đời (init → gate → review →
 // approve → stage kế tiếp) thay vì chỉ test đường đỏ.
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -20,9 +20,12 @@ export function run(args, opts = {}) {
 }
 
 // Root có đủ constitution.md + schema/ + rubric/ + templates/ thật của repo.
+// C4: kèm cả marker .pp-root — `pp init` nay đòi đích danh nó trước khi
+// scaffold (constitution.md một mình có thể là repo Spec Kit của người khác).
 export function makeRoot() {
   const d = mkdtempSync(join(tmpdir(), 'pp-e2e-'))
   writeFileSync(join(d, 'constitution.md'), '# Constitution\nĐiều 2 — Hoàn thành là dữ kiện.\n')
+  writeFileSync(join(d, '.pp-root'), 'marker gốc product-repo — pp init đòi file này (xem lib/commands/init.js)\n')
   for (const sub of ['schema', 'templates', 'rubric']) {
     mkdirSync(join(d, sub), { recursive: true })
     cpSync(join(REPO, sub), join(d, sub), { recursive: true })
@@ -57,7 +60,21 @@ Q8: Rollback thế nào nếu hỏng?
 A: Tắt feature flag, không có migration dữ liệu.
 `
 
-export const PRD = `# PRD — demo
+// B2: T1 nay đòi frontmatter (spec §5.1) và đối chiếu `feature`/`stage` với dữ
+// kiện thật — nên fixture "đủ sạch để T1 xanh" phải có nó. Tách thành hàm vì tên
+// feature không phải lúc nào cũng là `demo`: một artifact khai `feature: demo`
+// mà nằm trong `features/second/` phải ĐỎ, và đó là điều check này tồn tại để
+// bắt (copy artifact từ feature khác).
+export function frontmatter(stage, source, feature = 'demo', updated = '2026-08-20') {
+  return `---\nfeature: ${feature}\nstage: ${stage}\nupdated: ${updated}\nsource: ${source}\n---\n\n`
+}
+
+// Đổi tên feature trong frontmatter của một fixture đã dựng sẵn.
+export function forFeature(text, feature) {
+  return text.replace(/^feature: .*$/m, `feature: ${feature}`)
+}
+
+export const PRD = frontmatter('10-prd', '00-brief.md') + `# PRD — demo
 
 ## User stories
 
@@ -87,7 +104,7 @@ Không làm dashboard thống kê và không gửi email thông báo trong phạ
 - rollback: tắt bằng feature flag, không có migration nên rollback chỉ là gỡ flag.
 `
 
-export const TESTPLAN = `# Test plan — demo
+export const TESTPLAN = frontmatter('40-testplan', '10-prd.md') + `# Test plan — demo
 
 ## Test cases
 
@@ -114,6 +131,20 @@ precondition: nhân viên đã đăng nhập
 steps: gửi feedback với nội dung dài đúng 2000 ký tự
 expected: trả 201, không báo lỗi rỗng
 </tc>
+
+## Edge cases
+
+- null: nội dung null bị coi như rỗng, trả 400 (TC-003).
+- chuỗi rỗng: TC-003 phủ đúng trường hợp này.
+- vượt max length: 2001 ký tự bị từ chối 400 trước khi ghi.
+- unicode hoặc emoji: lưu nguyên văn UTF-8, đếm theo code point.
+- số âm: không áp dụng vì payload không có field số.
+- giá trị 0: không áp dụng vì payload không có field số.
+- số rất lớn: không áp dụng vì payload không có field số.
+- sai định dạng: body không phải JSON trả 400.
+- trùng lặp: hai bản ghi giống nhau là hợp lệ, không chặn.
+- gọi đồng thời: hai tab gửi cùng lúc tạo hai bản ghi độc lập.
+- sai quyền: TC-002 phủ trường hợp chưa đăng nhập.
 `
 
 // R1 — CHÍNH BẢN VIẾT LẠI ĐÃ QUAN SÁT ĐƯỢC TRONG REVIEW: artifact được thay
@@ -137,15 +168,53 @@ export const PRD_REWRITTEN = PRD
 export function passT1Prd(root, feature = 'demo') {
   const dir = join(root, 'features', feature)
   writeFileSync(join(dir, '10-questions.md'), QUESTIONS)
-  writeFileSync(join(dir, '10-prd.md'), PRD)
+  writeFileSync(join(dir, '10-prd.md'), forFeature(PRD, feature))
   const r = run(['gate', feature, '10-prd', '--root', root])
   assert.equal(r.code, 0, `gate 10-prd phải xanh, nhận:\n${r.out}`)
   return r
 }
 
+// B5: thứ tự stage nay là luật THI HÀNH, không chỉ là gợi ý của `pp status` —
+// nên mọi test muốn chạm tới `40-testplan` phải đưa `10-prd` qua trọn vẹn T1, T2
+// và chữ ký người trước. Làm thật cả ba bước (không nhét state bằng tay): chính
+// `upstreamGap` đọc lại evidence trên đĩa, nên một state giả sẽ không lừa được
+// nó — và đó là điểm mấu chốt của luật này.
+export function completePrd(root, feature = 'demo') {
+  passT1Prd(root, feature)
+  const v = verdictFile(root, feature, '10-prd', [])
+  const rr = run(['review-record', feature, '10-prd', '--verdict', v, '--root', root])
+  assert.equal(rr.code, 0, `review-record 10-prd phải xanh, nhận:\n${rr.out}`)
+  const ap = run(['approve', feature, '10-prd', '--root', root])
+  assert.equal(ap.code, 0, `approve 10-prd phải xanh, nhận:\n${ap.out}`)
+}
+
+// A3: verdict giờ phải mang nonce của phiếu review đang mở. Helper này phát phiếu
+// (chạy `pp review-prompt`) rồi đọc nonce ra, để mọi test cũ chỉ cần giữ nguyên
+// lời gọi. review-prompt có thể TỪ CHỐI hợp lệ (T1 chưa xanh, thiếu rubric...) —
+// khi đó không có nonce và ta vẫn ghi verdict không nonce, vì đúng những test đó
+// đang kiểm rằng review-record từ chối, và thông báo phải là lý do gần nhất
+// (T1 chưa xanh) chứ không phải lỗi nonce.
+export function mintNonce(root, feature, stageId) {
+  run(['review-prompt', feature, stageId, '--root', root])
+  try {
+    const p = join(root, 'features', feature, '.review', `${stageId}.pending.json`)
+    return JSON.parse(readFileSync(p, 'utf8')).nonce
+  } catch {
+    return null
+  }
+}
+
 export function verdictFile(root, feature, stageId, findings = []) {
   const p = join(root, 'features', feature, `.review-${stageId}.json`)
-  writeFileSync(p, JSON.stringify({ findings }))
+  const nonce = mintNonce(root, feature, stageId)
+  writeFileSync(p, JSON.stringify(nonce === null ? { findings } : { findings, nonce }))
+  return p
+}
+
+// Ghi verdict KHÔNG qua review-prompt — dùng cho các test cố tình bỏ qua phiếu.
+export function rawVerdictFile(root, feature, stageId, body) {
+  const p = join(root, 'features', feature, `.review-${stageId}.json`)
+  writeFileSync(p, JSON.stringify(body))
   return p
 }
 

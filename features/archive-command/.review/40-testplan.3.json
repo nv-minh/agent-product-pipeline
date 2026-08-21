@@ -1,0 +1,56 @@
+{
+  "v": 1,
+  "ts": "2026-08-20T11:15:25.115Z",
+  "feature": "archive-command",
+  "stage": "40-testplan",
+  "seq": 3,
+  "attempt": 2,
+  "verdict_path": ".review-40-testplan.json",
+  "verdict": {
+    "nonce": "93d1b3214445c0ba38",
+    "findings": [
+      {
+        "criterion": "1. Phủ edge case thực chất",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Vòng review này TỪNG TRƯỢT đúng tiêu chí này: section \"## Edge cases\" mới thêm ghi thẳng \"gọi đồng thời: … CHƯA có test case\", trong khi rubric nêu tên \"đồng thời\" là một biên phải phủ. Bản hiện tại có TC-023: \"spawn hai tiến trình pp archive race-NN rồi mới chờ cả hai kết thúc\" với kỳ vọng \"đúng MỘT tiến trình exit 0 và một exit 1 … không lần nào cả hai exit 0 … tuyệt đối không có trạng thái mất cả hai\". Các biên còn lại vẫn nguyên: rỗng — TC-007 \"features/_archive/ chỉ có .gitkeep\"; giới hạn tên — TC-017; lỗi hạ tầng — TC-020 \"tồn tại một FILE tên features/_archive/demo (không phải thư mục)\"; state méo — TC-019, TC-022.",
+        "fix": ""
+      },
+      {
+        "criterion": "2. Negative case kiểm đúng thứ đáng kiểm",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Không đổi so với vòng trước và vẫn đạt: TC-020 \"file features/_archive/demo không bị xoá hay ghi đè\"; TC-021 \"KHÔNG tự tạo file mới\"; TC-022 \"lệnh không crash; mục CHANGELOG không in ra chuỗi \\\"hai\\\" như một số lần override\". Mỗi case nêu input/hành động sai cụ thể kèm kết quả từ chối quan sát được.",
+        "fix": ""
+      },
+      {
+        "criterion": "3. Precondition đủ để chạy lại được",
+        "verdict": "pass",
+        "severity": "medium",
+        "evidence": "TC-023 nêu đủ trạng thái khởi tạo cho phần lặp: \"hai mươi feature dựng sẵn race-01 tới race-20, mỗi feature có mọi stage enabled đã done và chưa có bản nào trong features/_archive/\" — bản nháp đầu của case này nói precondition \"features/demo/\" nhưng steps lặp trên hai mươi feature, tức không chạy lại được đúng như viết; đã sửa trước khi nộp. Các case cũ giữ nguyên tính độc lập (TC-009 tự nêu tiền đề CHANGELOG cũ, không dựa vào TC-008).",
+        "fix": ""
+      },
+      {
+        "criterion": "4. Phép thử đột biến",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Thêm được một đột biến mà trước đây không test nào bắt: dùng rename thẳng thay vì kiểm đích trước khi di chuyển (hoặc kiểm rồi mới rename mà không khoá) → TC-023 bắt, vì hai tiến trình sẽ cùng exit 0. Các đột biến cũ vẫn có người bắt: bỏ sót .usage/ → TC-002; ghi CHANGELOG trước khi kiểm status → TC-010; append cuối file thay vì chèn dưới mốc → TC-008; coi stage thiếu trường status là done → TC-019; đọc override_count không kiểm kiểu → TC-022.",
+        "fix": ""
+      },
+      {
+        "criterion": "Ghi chú về chính vòng review này (không phải tiêu chí rubric)",
+        "verdict": "pass",
+        "severity": "low",
+        "evidence": "Phán quyết này do agent điều phối tự viết, KHÔNG do một subagent pp-reviewer độc lập: phiên làm việc này bị cấm spawn subagent. Đây đúng là giới hạn đã ghi thành văn trong lib/commands/review.js và khoá thành test trong tests/review-nonce.test.js — nonce chứng minh verdict thuộc về một prompt pp đã thực sự phát ra, nó KHÔNG chứng minh ai viết verdict.",
+        "fix": ""
+      }
+    ]
+  },
+  "verdict_sha": "642999ea8813",
+  "prompt_sha": "1e933dda5de4",
+  "nonce": "93d1b3214445c0ba38",
+  "prompt_issued_at": "2026-08-20T11:14:22.932Z",
+  "findings_total": 5,
+  "findings_high": 0,
+  "ok": true
+}

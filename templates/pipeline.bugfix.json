@@ -1,0 +1,32 @@
+{
+  "feature": "__FEATURE__",
+  "type": "bugfix",
+  "stages": {
+    "05-diagnosis": {
+      "enabled": true,
+      "skills": [],
+      "inputs": ["00-brief.md", "refs/source.md?", "../../constitution.md"],
+      "outputs": ["05-diagnosis.md"],
+      "gate": ["t1", "t2"],
+      "human": true,
+      "reads_workspace": true
+    },
+    "15-fixplan": {
+      "enabled": true,
+      "skills": [],
+      "inputs": ["05-diagnosis.md", "00-brief.md"],
+      "outputs": ["15-fixplan.md"],
+      "gate": ["t1"],
+      "human": false,
+      "reads_workspace": true
+    },
+    "40-regression": {
+      "enabled": true,
+      "skills": ["test-cases", "test-checklist"],
+      "inputs": ["05-diagnosis.md", "15-fixplan.md"],
+      "outputs": ["40-regression.md"],
+      "gate": ["t1", "t2"],
+      "human": false
+    }
+  }
+}

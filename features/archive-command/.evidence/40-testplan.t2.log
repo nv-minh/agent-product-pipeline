@@ -1,0 +1,12 @@
+[2026-08-20T11:15:25.106Z]  pp review-record archive-command 40-testplan --verdict <file.json>
+$ pp-review 1. Phủ edge case thực chất
+Exit status: 0
+$ pp-review 2. Negative case kiểm đúng thứ đáng kiểm
+Exit status: 0
+$ pp-review 3. Precondition đủ để chạy lại được
+Exit status: 0
+$ pp-review 4. Phép thử đột biến
+Exit status: 0
+$ pp-review Ghi chú về chính vòng review này (không phải tiêu chí rubric)
+Exit status: 0
+RESULT: PASS (t2) — attempt 2/3

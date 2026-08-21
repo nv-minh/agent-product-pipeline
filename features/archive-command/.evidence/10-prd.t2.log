@@ -1,0 +1,14 @@
+[2026-08-20T08:15:30.649Z]  pp gate 10-prd --tier t2
+$ pp-review 1. AC đo được
+Exit status: 0
+$ pp-review 2. Ranh giới phạm vi rõ
+Exit status: 0
+$ pp-review 3. Neo vào code thật
+Exit status: 0
+$ pp-review 4. Rủi ro được trả lời thực chất
+Exit status: 0
+$ pp-review 5. Không phình phạm vi
+  [medium] US-3 ("tôi muốn `pp archive` không bao giờ ghi ra ngoài `features/`") và AC-3-1 không truy được về `00-brief.md`. Brief chỉ yêu cầu ba việc: chuyển thư mục sang `features/_archive/`, chèn mục vào `CHANGELOG.md`, và từ chối feature chưa hoàn tất. Việc validate tên feature xuất hiện lần đầu ở Q10 của `10-questions.md`, không phải từ brief.
+  → Hoặc bỏ US-3/AC-3-1 khỏi PRD này và xử lý validate tên feature như một thay đổi ngang cấp cho MỌI lệnh nhận <feature> (đúng chỗ của nó, vì `pp init`/`gate`/`approve` đang có cùng lỗ hổng), hoặc bổ sung một dòng vào `00-brief.md` nêu rõ yêu cầu đó để story có nguồn.
+Exit status: 0
+RESULT: PASS (t2) — attempt 1/3

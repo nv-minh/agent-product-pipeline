@@ -1,0 +1,29 @@
+{"ts":"2026-08-20T08:12:06.656Z","v":1,"actor":"human","event":"init","feature":"archive-command","details":{"size":"S"}}
+{"ts":"2026-08-20T08:12:06.719Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","stage":"10-prd","details":{"action":"run","reason":"chưa chạy"}}
+{"ts":"2026-08-20T08:14:13.173Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"10-prd","ok":true,"details":{"tier":"t1","evidence":".evidence/10-prd.t1.log"}}
+{"ts":"2026-08-20T08:14:26.720Z","v":1,"actor":"pp","event":"review-prompt","feature":"archive-command","stage":"10-prd"}
+{"ts":"2026-08-20T08:15:30.657Z","v":1,"actor":"pp","event":"review","feature":"archive-command","stage":"10-prd","ok":true,"details":{"tier":"t2","findings_total":5,"findings_high":0,"archive":".review/10-prd.1.json","verdict_sha":"4361b398baa8"}}
+{"ts":"2026-08-20T08:15:41.193Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","stage":"10-prd","details":{"action":"await-human","reason":"gate xanh, chờ duyệt: pp approve 10-prd"}}
+{"ts":"2026-08-20T08:17:40.454Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","stage":"10-prd","details":{"action":"await-human","reason":"gate xanh, chờ duyệt: pp approve archive-command 10-prd"}}
+{"ts":"2026-08-20T08:17:40.503Z","v":1,"actor":"human","event":"approve","feature":"archive-command","stage":"10-prd"}
+{"ts":"2026-08-20T08:17:40.552Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","stage":"40-testplan","details":{"action":"run","reason":"chưa chạy"}}
+{"ts":"2026-08-20T08:18:32.665Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":false,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T08:19:53.272Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T08:21:18.887Z","v":1,"actor":"pp","event":"review","feature":"archive-command","stage":"40-testplan","ok":false,"details":{"tier":"t2","findings_total":4,"findings_high":1,"archive":".review/40-testplan.1.json","verdict_sha":"a5476334888b"}}
+{"ts":"2026-08-20T08:22:29.463Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T08:23:14.687Z","v":1,"actor":"pp","event":"review","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t2","findings_total":4,"findings_high":0,"archive":".review/40-testplan.2.json","verdict_sha":"afff495ace13"}}
+{"ts":"2026-08-20T08:23:14.737Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","details":{"action":"complete","reason":"mọi stage đã bật đều done và được duyệt"}}
+{"ts":"2026-08-20T08:24:43.228Z","v":1,"actor":"pp","event":"usage-sync","feature":"archive-command","details":{"added":28,"total":28,"sessions":1}}
+{"ts":"2026-08-20T11:09:32.520Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"10-prd","ok":true,"details":{"tier":"t1","evidence":".evidence/10-prd.t1.log"}}
+{"ts":"2026-08-20T11:10:04.244Z","v":1,"actor":"human","event":"approve","feature":"archive-command","stage":"10-prd"}
+{"ts":"2026-08-20T11:10:10.535Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":false,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T11:11:51.337Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T11:12:05.097Z","v":1,"actor":"pp","event":"review-prompt","feature":"archive-command","stage":"40-testplan"}
+{"ts":"2026-08-20T11:13:32.564Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T11:13:43.926Z","v":1,"actor":"pp","event":"review-prompt","feature":"archive-command","stage":"40-testplan"}
+{"ts":"2026-08-20T11:14:22.495Z","v":1,"actor":"pp","event":"gate","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t1","evidence":".evidence/40-testplan.t1.log"}}
+{"ts":"2026-08-20T11:14:22.900Z","v":1,"actor":"pp","event":"review-prompt","feature":"archive-command","stage":"40-testplan"}
+{"ts":"2026-08-20T11:15:25.120Z","v":1,"actor":"pp","event":"review","feature":"archive-command","stage":"40-testplan","ok":true,"details":{"tier":"t2","findings_total":5,"findings_high":0,"archive":".review/40-testplan.3.json","verdict_sha":"642999ea8813"}}
+{"ts":"2026-08-20T11:15:25.583Z","v":1,"actor":"pp","event":"dispatch","feature":"archive-command","details":{"action":"complete","reason":"mọi stage đã bật đều done và được duyệt"}}
+{"ts":"2026-08-20T11:15:34.472Z","v":1,"actor":"pp","event":"usage-sync","feature":"archive-command","details":{"added":15,"total":43,"sessions":1}}
+{"ts":"2026-08-20T13:32:16.087Z","v":1,"actor":"pp","event":"usage-sync","feature":"archive-command","details":{"added":3,"total":46,"sessions":1}}

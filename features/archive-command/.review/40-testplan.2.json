@@ -1,0 +1,46 @@
+{
+  "v": 1,
+  "ts": "2026-08-20T08:23:14.687Z",
+  "feature": "archive-command",
+  "stage": "40-testplan",
+  "seq": 2,
+  "attempt": 3,
+  "verdict_path": ".review-40-testplan.json",
+  "verdict": {
+    "findings": [
+      {
+        "criterion": "1. Phủ edge case thực chất",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Biên thật, gắn với input/state cụ thể: rỗng — TC-007 \"features/_archive/ chỉ có .gitkeep\"; giới hạn — TC-017 \"một ký tự a ... tên bắt đầu bằng gạch ngang -dau, tên có chữ hoa Demo, tên rỗng\"; lỗi hạ tầng — TC-020 \"tồn tại một FILE tên features/_archive/demo (không phải thư mục)\"; biên vị trí file — TC-012 \"dòng mốc nằm ở cuối file, không có dòng nào sau nó\"; trạng thái nửa vời — TC-010 \"archive thất bại không được để lại nửa kết quả\"; state méo — TC-019 và TC-022 (STATE.md bị sửa tay).",
+        "fix": ""
+      },
+      {
+        "criterion": "2. Negative case kiểm đúng thứ đáng kiểm",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Bốn negative case mới đều nêu một hành động/trạng thái SAI cụ thể kèm kết quả từ chối quan sát được, và không lặp lại chính lần từ chối đã có ở case thuận. TC-019: \"stage 40-testplan là object rỗng, không có trường status\" → \"trạng thái thiếu phải bị coi là CHƯA done, không được mặc định thành done\". TC-020: \"tồn tại một FILE tên features/_archive/demo\" → \"file ... không bị xoá hay ghi đè\". TC-021: \"CHANGELOG.md không tồn tại ở gốc repo\" → \"KHÔNG tự tạo file mới\". TC-022: \"override_count của 10-prd là chuỗi \\\"hai\\\" thay vì số\" → \"lệnh không crash; mục CHANGELOG không in ra chuỗi \\\"hai\\\" như một số lần override\". Bốn case từng bị dán nhãn sai (TC-005, TC-007, TC-012, TC-014) nay đã về type=\"positive\".",
+        "fix": ""
+      },
+      {
+        "criterion": "3. Precondition đủ để chạy lại được",
+        "verdict": "pass",
+        "severity": "medium",
+        "evidence": "Cách gây lỗi phụ thuộc uid đã bị loại: TC-018 giờ là \"chạy pp guard-write --path features/_archive/demo/STATE.md\" (không chmod, kết quả như nhau với mọi uid), và lỗi di chuyển được gây bằng ENOTDIR ở TC-020 thay vì quyền thư mục. Không case nào dựa vào trạng thái sót lại: TC-009 nêu thẳng tiền đề nó cần (\"CHANGELOG.md đã có một mục cũ nằm dưới dòng mốc\") chứ không giả định TC-008 đã chạy trước.",
+        "fix": ""
+      },
+      {
+        "criterion": "4. Phép thử đột biến",
+        "verdict": "pass",
+        "severity": "high",
+        "evidence": "Mỗi cách implement sai hợp lý đều có test bắt, nêu được số hiệu: bỏ sót .usage/ → TC-002; ghi CHANGELOG trước khi kiểm status → TC-010; append cuối file thay vì chèn dưới mốc → TC-008; chèn dưới mục cũ nhất → TC-009; ghi đè bản archive cũ → TC-006; regex cho phép chữ hoa → TC-017; coi stage thiếu trường status là done → TC-019; tự tạo CHANGELOG.md khi thiếu → TC-021; đọc override_count mà không kiểm kiểu → TC-022; archive xong làm sổ sách ra ngoài vùng guard → TC-018.",
+        "fix": ""
+      }
+    ]
+  },
+  "verdict_sha": "afff495ace13",
+  "prompt_sha": "10948fe5f1a2",
+  "findings_total": 4,
+  "findings_high": 0,
+  "ok": true
+}

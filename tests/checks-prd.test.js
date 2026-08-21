@@ -57,6 +57,24 @@ test('mục rủi ro bỏ trống thì fail', () => {
   assert.match(r.messages[0], /ai không được phép/)
 })
 
+// LỖI CÓ SẴN, lộ ra khi cơ chế checklist được dùng lần thứ hai cho
+// `edgeCaseChecklist` (B3): bản cũ so regex `<mục>\s*:\s*(.*)` trên CẢ KHỐI, và
+// `\s*` ăn luôn ký tự xuống dòng — nên một mục bỏ trống ở GIỮA section mượn được
+// kết luận của mục ngay sau nó và qua gate. Test ngay trên đây không bắt được vì
+// nó bỏ trống đúng mục CUỐI section (không có dòng sau để mượn) — cùng một lỗi,
+// hai vị trí khác nhau, chỉ một vị trí bị canh.
+test('mục rủi ro bỏ trống Ở GIỮA section cũng fail — không mượn được kết luận của mục sau', () => {
+  const bad = OK_PRD.replace(
+    '- migrate dữ liệu cũ: không có dữ liệu cũ, feature mới hoàn toàn',
+    '- migrate dữ liệu cũ:',
+  )
+  const r = checkRiskChecklist(bad, 'p.md', ['migrate dữ liệu cũ', 'ai không được phép'])
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /migrate dữ liệu cũ" bỏ trống/)
+  // Mục sau vẫn phải được tính là đã kết luận — không đỏ lan.
+  assert.doesNotMatch(r.messages.join('\n'), /ai không được phép/)
+})
+
 test('questions chưa trả lời hết thì fail', () => {
   const d = mkdtempSync(join(tmpdir(), 'pp-q-'))
   const qs = Array.from({ length: 8 }, (_, i) => `Q${i + 1}: câu hỏi ${i + 1}\nA: trả lời`).join('\n\n')

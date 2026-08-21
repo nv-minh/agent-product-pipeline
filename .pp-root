@@ -1,0 +1,7 @@
+Marker gốc product-repo của pp.
+
+`constitution.md` là quy ước chung (GitHub Spec Kit dùng đúng tên đó), nên một
+mình nó không đủ để pp kết luận "đây là product-repo" — đứng nhầm trong repo
+Spec Kit khác mà chạy `pp init` sẽ scaffold vào repo của người ta. File này là
+marker riêng: `pp init` đòi nó trước khi tạo bất kỳ thư mục nào; các lệnh còn
+lại nhận nó HOẶC constitution.md (fallback cho clone cũ).

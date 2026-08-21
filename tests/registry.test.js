@@ -15,21 +15,22 @@ import { checksFor } from '../lib/registry.js'
 const REPO = new URL('../', import.meta.url).pathname
 const names = (stageId) => checksFor(stageId, mkdtempSync(join(tmpdir(), 'pp-reg-')), REPO).map((c) => c.name)
 
+// B2/B3 thêm hai check vào danh sách này: `frontmatter` (luật chung §5.1, trước
+// đây không có dòng code nào kiểm) và `edge-cases` (nối `edgeCaseChecklist` —
+// 11 mục schema từng không ai đọc — vào một check thật).
+const COMMON = ['frontmatter', 'placeholders', 'headings', 'cited-paths']
+
 test('10-prd nhận đúng bộ check chung + bộ check PRD', () => {
-  assert.deepEqual(names('10-prd'), [
-    'placeholders', 'headings', 'cited-paths', 'ears', 'ids', 'risk-checklist', 'questions',
-  ])
+  assert.deepEqual(names('10-prd'), [...COMMON, 'ears', 'ids', 'risk-checklist', 'questions'])
 })
 
 test('40-testplan nhận đúng bộ check chung + bộ check testplan', () => {
-  assert.deepEqual(names('40-testplan'), [
-    'placeholders', 'headings', 'cited-paths', 'traceability', 'tc-schema', 'type-ratio',
-  ])
+  assert.deepEqual(names('40-testplan'), [...COMMON, 'traceability', 'tc-schema', 'type-ratio', 'edge-cases'])
 })
 
 test('stage không có schema/bộ check riêng chỉ nhận bộ check chung', () => {
-  assert.deepEqual(names('70-ops'), ['placeholders', 'headings', 'cited-paths'])
-  assert.deepEqual(names('stage-la-hoac-go-sai'), ['placeholders', 'headings', 'cited-paths'])
+  assert.deepEqual(names('70-ops'), COMMON)
+  assert.deepEqual(names('stage-la-hoac-go-sai'), COMMON)
 })
 
 // schema/<stage>.json phải THỰC SỰ được nạp vào check, không chỉ được đọc rồi bỏ.
@@ -48,6 +49,33 @@ test('check risk-checklist của 10-prd dùng riskChecklist trong schema/10-prd.
   assert.equal(r.ok, false)
   assert.match(r.messages.join('\n'), /rollback/)
   assert.match(r.messages.join('\n'), /i18n và timezone/)
+})
+
+// B3: `edgeCaseChecklist` phải thực sự đi từ schema vào check — đây chính là
+// điều nó KHÔNG làm trước bản vá (11 mục nằm trong schema, 0 chỗ đọc).
+test('check edge-cases của 40-testplan dùng edgeCaseChecklist trong schema/40-testplan.json', () => {
+  const edge = checksFor('40-testplan', mkdtempSync(join(tmpdir(), 'pp-reg-')), REPO).find((c) => c.name === 'edge-cases')
+  const r = edge.run('## Test cases\n')
+  assert.equal(r.ok, false)
+  assert.match(r.messages.join('\n'), /gọi đồng thời/)
+  assert.match(r.messages.join('\n'), /unicode hoặc emoji/)
+  assert.match(r.messages.join('\n'), /không tìm thấy heading "## Edge cases"/)
+})
+
+// B2: hai giá trị đối chiếu phải lấy từ dữ kiện `pp` biết chắc — tên thư mục
+// feature và id stage đang gate — chứ không phải từ chính artifact.
+test('check frontmatter đối chiếu feature theo TÊN THƯ MỤC và stage theo stage đang gate', () => {
+  const dir = join(mkdtempSync(join(tmpdir(), 'pp-reg-')), 'features', 'thanh-toan')
+  const fm = checksFor('10-prd', dir, REPO).find((c) => c.name === 'frontmatter')
+
+  const ok = fm.run('---\nfeature: thanh-toan\nstage: 10-prd\nupdated: 2026-08-20\nsource: 00-brief.md\n---\n')
+  assert.equal(ok.ok, true, ok.messages.join('\n'))
+
+  const wrong = fm.run('---\nfeature: demo\nstage: 20-ux\nupdated: hôm qua\nsource: 00-brief.md\n---\n')
+  assert.equal(wrong.ok, false)
+  assert.match(wrong.messages.join('\n'), /feature: "demo" không khớp "thanh-toan"/)
+  assert.match(wrong.messages.join('\n'), /stage: "20-ux" không khớp "10-prd"/)
+  assert.match(wrong.messages.join('\n'), /updated: "hôm qua" không phải ngày/)
 })
 
 test('stage không có schema thì headings không đòi gì (không throw)', () => {

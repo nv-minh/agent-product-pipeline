@@ -157,6 +157,76 @@ test('cuối sync ghi audit event usage-sync với added/total/sessions', () => 
   assert.equal(e.details.sessions, 2)
 })
 
+// ─── D5 — ba lỗ đo đạc: chỉ quét product-repo, cwd so tuyệt đối, mention substring ───
+
+test('D5: --repos quét thêm transcript của repo code — nơi phần việc nặng nhất sống', () => {
+  const { root, tdir } = setup()
+  const backend = mkdtempSync(join(tmpdir(), 'pp-backend-'))
+  // Phiên viết code: cwd là BACKEND repo, nằm trong dir munge của backend.
+  mkTranscripts(tdir, backend, {
+    code1: [assistant(backend, 'code1', 'msg_K', '2026-08-19T10:10:00Z', U(500, 200))],
+  })
+  // Không --repos: không thấy gì (đúng lỗ hổng cũ) — dir munge của product-repo
+  // còn chưa tồn tại, phiên backend hoàn toàn vô hình.
+  const blind = run(['usage-sync', 'demo', '--transcripts', tdir, '--root', root])
+  assert.equal(blind.code, 0)
+  assert.match(blind.out, /không tìm thấy thư mục transcript/)
+  // Có --repos: entry của backend được gán vào cửa sổ 10-prd của feature.
+  // Dir munge của product-root tồn tại (0 file) để cả HAI repo đều được quét.
+  mkTranscripts(tdir, root, {})
+  const r = run(['usage-sync', 'demo', '--transcripts', tdir, '--repos', backend, '--root', root])
+  assert.equal(r.code, 0)
+  const es = entriesOf(root)
+  assert.equal(es.length, 1)
+  assert.equal(es[0].stage, '10-prd')
+  assert.match(r.out, /2 repo/)
+})
+
+test('D5: repo khai trong --repos chưa có transcript — nói rõ rồi bỏ qua, không im lặng', () => {
+  const { root, tdir } = setup()
+  mkTranscripts(tdir, root, { s1: [assistant(root, 's1', 'msg_A', '2026-08-19T10:05:00Z', U(1, 1))] })
+  const r = run(['usage-sync', 'demo', '--transcripts', tdir, '--repos', '/chua/co/repo-nay', '--root', root])
+  assert.equal(r.code, 0)
+  assert.match(r.out, /không có transcript ở .*chua-co-repo-nay.*bỏ qua/)
+  assert.equal(entriesOf(root).length, 1)
+})
+
+test('D5: session mở ở SUBDIR của repo (cwd sâu hơn root) không còn bị loại', () => {
+  const { root, tdir } = setup()
+  mkTranscripts(tdir, root, {
+    s1: [assistant(join(root, 'features', 'demo'), 's1', 'msg_S', '2026-08-19T10:05:00Z', U(11, 22))],
+  })
+  const r = run(['usage-sync', 'demo', '--transcripts', tdir, '--root', root])
+  assert.equal(r.code, 0)
+  assert.equal(entriesOf(root).length, 1, 'cwd là subdir của root phải được nhận (so prefix)')
+})
+
+test('D5: mention có ranh giới segment — feature "auth" không hút dòng của "auth-v2"', () => {
+  const root = makeRoot()
+  run(['init', 'auth', '--size', 'S', '--root', root])
+  const tdir = mkdtempSync(join(tmpdir(), 'pp-usage-'))
+  mkTranscripts(tdir, root, {
+    s1: [
+      // Ngoài mọi cửa sổ (không seed audit) → chỉ còn đường mention.
+      { ...assistant(root, 's1', 'msg_V2', '2026-08-19T11:00:00Z', U(999, 999)), tool_input: 'đọc features/auth-v2/10-prd.md' },
+      { ...assistant(root, 's1', 'msg_OK', '2026-08-19T11:01:00Z', U(5, 5)), tool_input: 'đọc features/auth/10-prd.md' },
+    ],
+  })
+  const r = run(['usage-sync', 'auth', '--transcripts', tdir, '--root', root])
+  assert.equal(r.code, 0)
+  const es = entriesOf(root, 'auth')
+  assert.equal(es.length, 1, `auth-v2 phải bị bỏ, nhận: ${es.map((e) => e.id).join(', ')}`)
+  assert.equal(es[0].id, 's1:msg_OK')
+})
+
+test('D5: output nói thẳng giới hạn heuristic của phép gán', () => {
+  const { root, tdir } = setup()
+  mkTranscripts(tdir, root, { s1: [assistant(root, 's1', 'msg_A', '2026-08-19T10:05:00Z', U(1, 1))] })
+  const r = run(['usage-sync', 'demo', '--transcripts', tdir, '--root', root])
+  assert.match(r.out, /heuristic/)
+  assert.match(r.out, /đừng cộng token GIỮA các feature/)
+})
+
 test('PP_TRANSCRIPTS env là seam thứ hai khi không có --transcripts', () => {
   const { root, tdir } = setup()
   mkTranscripts(tdir, root, { s1: [assistant(root, 's1', 'msg_A', '2026-08-19T10:05:00Z', U(100, 50))] })

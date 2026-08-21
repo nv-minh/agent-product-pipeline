@@ -27,4 +27,14 @@ Với MỖI tiêu chí, trả verdict kèm **trích dẫn nguyên văn** từ ar
 - Trượt: có story agent tự nghĩ ra mà brief không yêu cầu (vi phạm Điều 1).
 - Severity: **medium**
 
-<!-- Bổ sung tiêu chí 6+ từ mục "Chỗ sơ sài" của tests/fixtures/real/NOTES.md -->
+## 6. Delta trung thực (CHỈ pipeline change — bỏ qua nếu artifact không có `## Delta`)
+- Đạt: mỗi mục `ADDED` / `MODIFIED` / `REMOVED` nói đúng một thay đổi so với hiện trạng đã chốt ở
+  `05-impact.md`, và truy được về nó; `REMOVED: không có.` là kết luận hợp lệ.
+- Trượt: PRD viết lại toàn bộ hành vi rồi dán một mục Delta chung chung (spec đòi PRD **delta**,
+  không phải PRD viết lại); mục Delta nhắc thay đổi mà `05-impact.md` không hề nói tới;
+  `MODIFIED` mô tả một hành vi chưa từng tồn tại (đó là `ADDED`).
+- Severity: **high**
+
+<!-- Bổ sung tiêu chí 7+ khi lessons/10-prd.md tích luỹ đủ mẫu gate đỏ lặp lại
+     (D7: cite cũ trỏ tests/fixtures/real/NOTES.md — file đó chưa từng tồn tại
+     trong repo; rubric không được cite thứ nó không thể mở). -->

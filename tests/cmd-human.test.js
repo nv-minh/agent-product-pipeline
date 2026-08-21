@@ -19,6 +19,7 @@ function run(args, opts = {}) {
 function root() {
   const d = mkdtempSync(join(tmpdir(), 'pp-h-'))
   writeFileSync(join(d, 'constitution.md'), '# c\n')
+  writeFileSync(join(d, '.pp-root'), 'marker (C4 — pp init đòi file này)\n')
   mkdirSync(join(d, 'lessons'), { recursive: true })
   cpSync(join(REPO, 'templates'), join(d, 'templates'), { recursive: true })
   run(['init', 'demo', '--size', 'S', '--root', d])
@@ -326,6 +327,7 @@ test('report KHÔNG cảnh báo khi mới override 2 lần (ngưỡng là 3)', (
 test('report: chưa có feature nào thì không crash', () => {
   const d = mkdtempSync(join(tmpdir(), 'pp-h-empty-'))
   writeFileSync(join(d, 'constitution.md'), '# c\n')
+  writeFileSync(join(d, '.pp-root'), 'marker (C4 — pp init đòi file này)\n')
   const r = run(['report', '--root', d])
   assert.equal(r.code, 0)
 })

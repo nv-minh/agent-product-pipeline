@@ -1,7 +1,22 @@
 {
   "name": "agent-product-pipeline",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nv-minh/agent-product-pipeline.git"
+  },
   "type": "module",
-  "engines": { "node": ">=18" },
-  "scripts": { "test": "node --test" }
+  "bin": { "pp": "./bin/pp" },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:fast": "node --test tests/args.test.js tests/checks-common.test.js tests/checks-prd.test.js tests/config.test.js tests/docs-cites.test.js tests/evidence.test.js tests/gate.test.js tests/plan.test.js tests/state-updated.test.js tests/state.test.js tests/testplan-types.test.js",
+    "lint": "biome lint ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.9"
+  }
 }

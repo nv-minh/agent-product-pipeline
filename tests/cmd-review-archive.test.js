@@ -44,7 +44,12 @@ test('lần review đầu: .review/10-prd.1.json — verdict nguyên văn + verd
   assert.equal(a.stage, '10-prd')
   assert.equal(a.seq, 1)
   assert.equal(a.attempt, 1)
-  assert.deepEqual(a.verdict, { findings: [HIGH, PASS] }) // nguyên văn, không biên tập
+  // Nguyên văn, không biên tập — kể cả field `nonce` mà A3 thêm vào verdict.
+  assert.deepEqual(a.verdict.findings, [HIGH, PASS])
+  assert.match(a.verdict.nonce, /^[0-9a-f]{18}$/)
+  // Nonce của phiếu đã dùng cũng được lưu ở tầng archive để truy lại sau.
+  assert.equal(a.nonce, a.verdict.nonce)
+  assert.match(a.prompt_issued_at, /^\d{4}-\d{2}-\d{2}T/)
   assert.equal(a.verdict_sha, sha12(raw))
   assert.equal(a.verdict_path, '.review-10-prd.json')
   assert.equal(a.findings_total, 2)
@@ -89,13 +94,30 @@ test('done → re-gate → review lại: seq TĂNG TIẾP dù attempts đã rese
   assert.equal(loadArchive(root, 3).attempt, 1)
 })
 
-test('thiếu rubric LÚC RECORD: prompt_sha null — archive vẫn ghi, lệnh vẫn exit đúng', () => {
+// ĐỔI HÀNH VI CÓ CHỦ ĐÍCH (A3). Test này trước đây khoá hành vi: thiếu rubric lúc
+// record thì vẫn ghi archive với `prompt_sha: null` và exit 0. Đó chính là điểm
+// yếu: `prompt_sha` được TÍNH nhưng không chỗ nào so, nên một verdict không thể
+// tái dựng được prompt vẫn đưa stage tới done. Nay `review-record` đòi prompt dựng
+// lại phải khớp prompt đã phát, nên hai trường hợp dưới đây đều bị từ chối — rõ
+// ràng, không crash, và state không đổi.
+test('thiếu rubric TRƯỚC KHI phát phiếu: không có phiếu nào mở → review-record từ chối', () => {
   const root = setup()
   rmSync(join(root, 'rubric', '10-prd.md'))
-  const vf = verdictFile(root, 'demo', '10-prd', [])
+  const vf = verdictFile(root, 'demo', '10-prd', []) // review-prompt bên trong sẽ exit 2
   const r = run(['review-record', 'demo', '10-prd', '--verdict', vf, '--root', root])
-  assert.equal(r.code, 0)
-  assert.equal(loadArchive(root, 1).prompt_sha, null)
+  assert.equal(r.code, 1)
+  assert.match(r.out, /chưa có phiếu review đang mở/)
+  assert.equal(existsSync(join(root, 'features/demo/.review/10-prd.1.json')), false, 'không archive verdict không hợp lệ')
+})
+
+test('rubric bị xoá SAU khi phát phiếu: prompt không dựng lại được → từ chối vì drift', () => {
+  const root = setup()
+  const vf = verdictFile(root, 'demo', '10-prd', []) // phiếu được phát khi rubric còn
+  rmSync(join(root, 'rubric', '10-prd.md'))
+  const r = run(['review-record', 'demo', '10-prd', '--verdict', vf, '--root', root])
+  assert.equal(r.code, 1)
+  assert.match(r.out, /đã đổi sau khi phát prompt/)
+  assert.equal(existsSync(join(root, 'features/demo/.review/10-prd.1.json')), false)
 })
 
 test('review-prompt output không đổi sau refactor: đủ 3 đoạn CONSTITUTION/RUBRIC/ARTIFACT', () => {
