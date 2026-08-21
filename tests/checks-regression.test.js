@@ -129,3 +129,50 @@ test('40-testplan (pipeline feature) KHÔNG bị thêm check này', () => {
   // và vẫn giữ nguyên bộ check testplan cũ
   assert.ok(names.includes('traceability'))
 })
+
+// FINDING (lab 2026-08-21): token "đại diện" của một mục trước đây là 3 từ dài
+// nhất — thường là từ phổ thông dùng chung giữa các mục ("nguyên", "chính"…);
+// khớp substring trên cả section khiến test của mục B "phủ" được luôn mục A.
+// Xoá hẳn test của mục A, gate vẫn xanh. Giờ token phải PHÂN BIỆT: không mục
+// Unchanged anh em nào cũng chứa từ đó.
+test('từ dùng chung giữa các mục không được tính là phủ mục khác (khớp chéo)', () => {
+  const r0 = makeRoot()
+  assert.equal(run(['init', 'fix-x2', '--type', 'bugfix', '--root', r0]).code, 0)
+  const dir = join(r0, 'features/fix-x2')
+  const DIAG2 = frontmatter('05-diagnosis', '00-brief.md', 'fix-x2') + `# Diagnosis — fix-x2
+
+## Tái hiện
+
+Gửi quá hạn mức.
+
+## Root cause
+
+Thiếu kiểm tra.
+
+## Giả thuyết đã loại
+
+- Lỗi DB: loại.
+
+## Unchanged behavior
+
+- Giữ nguyên chính sách hoàn tiền vé.
+- Giữ nguyên chính sách ưu đãi khách VIP.
+`
+  writeFileSync(join(dir, '05-diagnosis.md'), DIAG2)
+  assert.equal(run(['gate', 'fix-x2', '05-diagnosis', '--root', r0]).code, 0)
+  const v = verdictFile(r0, 'fix-x2', '05-diagnosis', [])
+  assert.equal(run(['review-record', 'fix-x2', '05-diagnosis', '--verdict', v, '--root', r0]).code, 0)
+  assert.equal(run(['approve', 'fix-x2', '05-diagnosis', '--root', r0]).code, 0)
+  writeFileSync(join(dir, '15-fixplan.md'), FIXPLAN.replace(/fix-500/g, 'fix-x2'))
+  assert.equal(run(['gate', 'fix-x2', '15-fixplan', '--root', r0]).code, 0)
+  // Chỉ nhắc mục VIP — nhưng bằng đúng những từ ("giữ nguyên chính sách") mà
+  // LUẬT CŨ vẫn tính là phủ luôn mục "hoàn tiền vé".
+  writeFileSync(
+    join(dir, '40-regression.md'),
+    REG('- RT-4 (Unchanged): giữ nguyên chính sách ưu đãi khách VIP.').replace(/fix-500/g, 'fix-x2'),
+  )
+  const g = run(['gate', 'fix-x2', '40-regression', '--root', r0])
+  assert.equal(g.code, 1, `output:\n${g.out}`)
+  assert.match(g.out, /không được test nào phủ/)
+  assert.match(g.out, /hoàn tiền vé/)
+})

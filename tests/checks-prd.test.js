@@ -189,6 +189,18 @@ test('AC có xuống dòng trước THE SYSTEM SHALL vẫn pass', () => {
   assert.equal(checkEars(withNewline, 'p.md').ok, true)
 })
 
+// FINDING (lab 2026-08-21): bộ đếm SHALL dùng literal "THE SYSTEM SHALL" trong
+// khi regex EARS phía trên dùng \s+ — wrap dòng GIỮA ba chữ đó bị báo "thiếu" oan.
+test('AC xuống dòng giữa THE / SYSTEM / SHALL vẫn được đếm là một SHALL', () => {
+  for (const wrapped of [
+    'hợp lệ THE\nSYSTEM SHALL lưu phản hồi',
+    'hợp lệ THE SYSTEM\nSHALL lưu phản hồi',
+  ]) {
+    const r = checkEars(OK_PRD.replace('hợp lệ THE SYSTEM SHALL lưu phản hồi', wrapped), 'p.md')
+    assert.equal(r.ok, true, r.messages.join('\n'))
+  }
+})
+
 // FINDING 2: duplicate US-*/AC-* ids are not detected
 test('US id bị lặp thì fail và nêu số lần', () => {
   const bad = OK_PRD.replace(
@@ -239,12 +251,13 @@ test('mục rủi ro đầy đủ đúng trong section Rủi ro thì pass', () =
   assert.equal(r.ok, true)
 })
 
-test('thiếu hẳn heading Rủi ro thì mọi mục fail và báo thiếu heading', () => {
+test('thiếu hẳn heading Rủi ro thì đỏ bằng MỘT dòng gộp (không lặp mỗi mục cùng lý do)', () => {
   const bad = OK_PRD.replace(/## Rủi ro[\s\S]*/, '')
   const r = checkRiskChecklist(bad, 'p.md', ['migrate dữ liệu cũ', 'ai không được phép'])
   assert.equal(r.ok, false)
-  assert.equal(r.messages.length, 2)
-  assert.match(r.messages[0], /Rủi ro/)
+  assert.equal(r.messages.length, 1)
+  assert.match(r.messages[0], /không tìm thấy heading "## Rủi ro"/)
+  assert.match(r.messages[0], /2 mục rủi ro chưa kiểm được/)
 })
 
 // FINDING 4: answer written on the line after "A:" must still count as answered

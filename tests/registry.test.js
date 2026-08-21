@@ -47,8 +47,10 @@ test('check risk-checklist của 10-prd dùng riskChecklist trong schema/10-prd.
   const risk = checksFor('10-prd', mkdtempSync(join(tmpdir(), 'pp-reg-')), REPO).find((c) => c.name === 'risk-checklist')
   const r = risk.run('# PRD rỗng')
   assert.equal(r.ok, false)
-  assert.match(r.messages.join('\n'), /rollback/)
-  assert.match(r.messages.join('\n'), /i18n và timezone/)
+  // Heading chưa có → một dòng gộp nêu đúng SỐ mục trong schema (8), chứng tỏ
+  // checklist đi từ schema vào check; từng mục chỉ được nêu tên khi heading đã có.
+  assert.match(r.messages.join('\n'), /không tìm thấy heading "## Rủi ro"/)
+  assert.match(r.messages.join('\n'), /8 mục rủi ro chưa kiểm được/)
 })
 
 // B3: `edgeCaseChecklist` phải thực sự đi từ schema vào check — đây chính là
@@ -57,9 +59,8 @@ test('check edge-cases của 40-testplan dùng edgeCaseChecklist trong schema/40
   const edge = checksFor('40-testplan', mkdtempSync(join(tmpdir(), 'pp-reg-')), REPO).find((c) => c.name === 'edge-cases')
   const r = edge.run('## Test cases\n')
   assert.equal(r.ok, false)
-  assert.match(r.messages.join('\n'), /gọi đồng thời/)
-  assert.match(r.messages.join('\n'), /unicode hoặc emoji/)
   assert.match(r.messages.join('\n'), /không tìm thấy heading "## Edge cases"/)
+  assert.match(r.messages.join('\n'), /11 mục edge case chưa kiểm được/)
 })
 
 // B2: hai giá trị đối chiếu phải lấy từ dữ kiện `pp` biết chắc — tên thư mục

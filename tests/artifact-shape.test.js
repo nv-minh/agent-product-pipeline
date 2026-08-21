@@ -98,9 +98,9 @@ test('B3: testplan thiếu "## Edge cases" thì T1 ĐỎ và liệt kê đủ m�
   assert.equal(noSection.code, 1)
   assert.match(noSection.out, /pp-check edge-cases/)
   assert.match(noSection.out, /không tìm thấy heading "## Edge cases"/)
-  for (const item of ['null', 'unicode hoặc emoji', 'gọi đồng thời', 'sai quyền']) {
-    assert.match(noSection.out, new RegExp(`thiếu mục edge case "${item}"`))
-  }
+  // Một dòng duy nhất thay vì lặp 11 lần cùng lý do (lab 2026-08-21) — mỗi mục
+  // chỉ được liệt kê riêng khi heading ĐÃ có mà mục đó thiếu kết luận.
+  assert.match(noSection.out, /11 mục edge case chưa kiểm được/)
 })
 
 test('B3: "không áp dụng vì …" là kết luận hợp lệ — check này không ép viết test rác', () => {
